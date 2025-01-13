@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { simulateAPIResponse } from "@/lib/apiSimulation";
+import { ConsultationProcess } from "./ConsultationProcess";
 
 interface Consultation {
   specialty: string;
@@ -20,6 +21,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   consultations?: Consultation[];
+  stage?: string;
 }
 
 export function YesilAIChat() {
@@ -43,24 +45,35 @@ export function YesilAIChat() {
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "", consultations: [], stage: "" }]);
     setIsLoading(true);
     setConsultingSpecialties(new Set());
 
     try {
       const finalResponse = await simulateAPIResponse(userMessage, (partialResponse) => {
-        const latestSpecialty = partialResponse.specialty_responses[partialResponse.specialty_responses.length - 1];
-        setConsultingSpecialties(prev => new Set(prev).add(latestSpecialty.specialty));
+        if (partialResponse.specialty_responses && partialResponse.specialty_responses.length > 0) {
+          const latestSpecialty = partialResponse.specialty_responses[partialResponse.specialty_responses.length - 1];
+          
+          setConsultingSpecialties(prev => {
+            const newSet = new Set(prev);
+            if (latestSpecialty && latestSpecialty.specialty) {
+              newSet.add(latestSpecialty.specialty);
+            }
+            return newSet;
+          });
+        }
+
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage.role === 'assistant') {
             return [
               ...prev.slice(0, -1),
-              { ...lastMessage, consultations: partialResponse.specialty_responses }
+              { ...lastMessage, consultations: partialResponse.specialty_responses || [], stage: partialResponse.stage || '' }
             ];
           } else {
             return [
               ...prev,
-              { role: 'assistant', content: '', consultations: partialResponse.specialty_responses }
+              { role: 'assistant', content: '', consultations: partialResponse.specialty_responses || [], stage: partialResponse.stage || '' }
             ];
           }
         });
@@ -71,12 +84,12 @@ export function YesilAIChat() {
         if (lastMessage.role === 'assistant') {
           return [
             ...prev.slice(0, -1),
-            { ...lastMessage, content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses }
+            { ...lastMessage, content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses, stage: finalResponse.stage }
           ];
         } else {
           return [
             ...prev,
-            { role: 'assistant', content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses }
+            { role: 'assistant', content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses, stage: finalResponse.stage }
           ];
         }
       });
@@ -133,41 +146,13 @@ export function YesilAIChat() {
                     : "bg-gray-50"
                 )}
               >
-                {message.role === "assistant" && message.consultations && (
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-600 mb-2">Our multi-specialty consultation process:</p>
-                    <div className="space-y-2">
-                      {message.consultations.map((consultation, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.1 }}
-                          className="flex items-center space-x-2"
-                        >
-                          <div className="bg-gray-100 rounded-full p-1">
-                            {getSpecialtyIcon(consultation.specialty)}
-                          </div>
-                          <Button
-                            onClick={() => !consultingSpecialties.has(consultation.specialty) && setActiveConsultation(consultation)}
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "h-auto p-1 text-left justify-start text-sm",
-                              consultingSpecialties.has(consultation.specialty)
-                                ? "cursor-wait"
-                                : "hover:bg-transparent hover:underline"
-                            )}
-                          >
-                            <span className="font-medium">{consultation.specialty}</span>
-                            {consultingSpecialties.has(consultation.specialty) && (
-                              <span className="ml-2 text-xs text-gray-500">Consulting...</span>
-                            )}
-                          </Button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
+                {message.role === "assistant" && (
+                  <ConsultationProcess
+                    consultations={message.consultations}
+                    consultingSpecialties={consultingSpecialties}
+                    onConsultationClick={setActiveConsultation}
+                    stage={message.stage}
+                  />
                 )}
                 <div className="flex items-start gap-2">
                   {message.role === "assistant" && <Bot className="h-4 w-4 mt-1 text-gray-400" />}
@@ -178,16 +163,6 @@ export function YesilAIChat() {
               </motion.div>
             ))}
           </AnimatePresence>
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-2 text-gray-500"
-            >
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span className="text-xs">Processing your case...</span>
-            </motion.div>
-          )}
         </div>
       </ScrollArea>
 

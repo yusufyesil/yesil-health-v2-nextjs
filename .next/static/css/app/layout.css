@@ -982,9 +982,6 @@ video {
 .w-px {
   width: 1px;
 }
-.w-12 {
-  width: 3rem;
-}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1628,6 +1625,10 @@ video {
 }
 .text-sidebar-foreground\/70 {
   color: hsl(var(--sidebar-foreground) / 0.7);
+}
+.text-gray-700 {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
 }
 .underline-offset-4 {
   text-underline-offset: 4px;
