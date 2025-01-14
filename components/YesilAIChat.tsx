@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import { SendHorizontal, Bot, Loader2, X } from 'lucide-react';
+import { SendHorizontal, Bot, Loader2, X, Brain } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSpecialtyIcon } from "@/lib/specialtyIcons";
-import { simulateAPIResponse } from "@/lib/apiSimulation";
 import { ConsultationProcess } from "./ConsultationProcess";
+import { ThinkingIndicator } from './ThinkingIndicator';
 
 interface Consultation {
   specialty: string;
@@ -22,6 +22,13 @@ interface Message {
   content: string;
   consultations?: Consultation[];
   stage?: string;
+  processingStage?: string;
+}
+
+// Add new interface for specialty status
+interface SpecialtyStatus {
+  specialty: string;
+  status: 'pending' | 'consulting' | 'completed';
 }
 
 export function YesilAIChat() {
@@ -31,6 +38,7 @@ export function YesilAIChat() {
   const [activeConsultation, setActiveConsultation] = useState<Consultation | null>(null);
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -45,66 +53,209 @@ export function YesilAIChat() {
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setMessages((prev) => [...prev, { role: "assistant", content: "", consultations: [], stage: "" }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "", consultations: [], stage: "Processing your question..." }]);
     setIsLoading(true);
     setConsultingSpecialties(new Set());
+    setSpecialtyStatuses([]); 
 
     try {
-      const finalResponse = await simulateAPIResponse(userMessage, (partialResponse) => {
-        if (partialResponse.specialty_responses && partialResponse.specialty_responses.length > 0) {
-          const latestSpecialty = partialResponse.specialty_responses[partialResponse.specialty_responses.length - 1];
-          
-          setConsultingSpecialties(prev => {
-            const newSet = new Set(prev);
-            if (latestSpecialty && latestSpecialty.specialty) {
-              newSet.add(latestSpecialty.specialty);
-            }
-            return newSet;
-          });
-        }
+      const response = await fetch('/api/consultation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: userMessage }),
+      });
 
-        setMessages(prev => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage.role === 'assistant') {
-            return [
-              ...prev.slice(0, -1),
-              { ...lastMessage, consultations: partialResponse.specialty_responses || [], stage: partialResponse.stage || '' }
-            ];
-          } else {
-            return [
-              ...prev,
-              { role: 'assistant', content: '', consultations: partialResponse.specialty_responses || [], stage: partialResponse.stage || '' }
-            ];
+      if (!response.ok) throw new Error('Network response was not ok');
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader available');
+
+      let buffer = '';
+      let currentSpecialty = '';
+      let isCollectingConsultation = false;
+      let consultationText = '';
+      let isCollectingFinalResponse = false;
+      let finalResponseText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += new TextDecoder().decode(value);
+        
+        // Process complete lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          console.log('Processing line:', trimmedLine); // Debug log
+
+          if (trimmedLine.includes('Processing the question')) {
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                return [...prev.slice(0, -1), { 
+                  ...lastMessage, 
+                  processingStage: 'Analyzing your question...',
+                  stage: 'Initial Analysis'
+                }];
+              }
+              return prev;
+            });
           }
-        });
-      });
-
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage.role === 'assistant') {
-          return [
-            ...prev.slice(0, -1),
-            { ...lastMessage, content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses, stage: finalResponse.stage }
-          ];
-        } else {
-          return [
-            ...prev,
-            { role: 'assistant', content: finalResponse.final_consultation, consultations: finalResponse.specialty_responses, stage: finalResponse.stage }
-          ];
+          else if (trimmedLine.includes('Specialties determined:')) {
+            const specialtiesText = trimmedLine.split('Specialties determined:')[1].trim();
+            const specialties = specialtiesText.split(',').map(s => s.trim());
+            
+            setSpecialtyStatuses(specialties.map(specialty => ({
+              specialty,
+              status: 'pending'
+            })));
+            
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                return [...prev.slice(0, -1), { 
+                  ...lastMessage, 
+                  processingStage: `Consulting ${specialties.length} specialists...`,
+                  stage: 'Specialist Consultation'
+                }];
+              }
+              return prev;
+            });
+          }
+          else if (trimmedLine.includes('Processing consultation for')) {
+            // Save previous consultation if exists
+            if (currentSpecialty && consultationText) {
+              updateConsultation(currentSpecialty, consultationText);
+              consultationText = '';
+            }
+            
+            currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
+            isCollectingConsultation = false;
+            
+            setSpecialtyStatuses(prev => 
+              prev.map(s => s.specialty === currentSpecialty ? { ...s, status: 'consulting' } : s)
+            );
+          }
+          else if (trimmedLine.includes('consultation:')) {
+            isCollectingConsultation = true;
+            isCollectingFinalResponse = false;
+            consultationText = '';
+          }
+          else if (trimmedLine === 'Compiling final response...') {
+            // Save last consultation if exists
+            if (currentSpecialty && consultationText) {
+              updateConsultation(currentSpecialty, consultationText);
+              consultationText = '';
+            }
+            isCollectingConsultation = false;
+            isCollectingFinalResponse = false;
+            
+            // Update message to show thinking state
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                return [...prev.slice(0, -1), { 
+                  ...lastMessage, 
+                  processingStage: 'Analyzing consultations...',
+                  stage: 'Final Analysis',
+                  content: '⌛ Yesil AI is thinking on consultations...' // This will be replaced by ThinkingIndicator
+                }];
+              }
+              return prev;
+            });
+          }
+          else if (trimmedLine.includes('Final Response:')) {
+            isCollectingFinalResponse = true;
+            finalResponseText = trimmedLine.split('Final Response:')[1].trim();
+          }
+          else if (isCollectingFinalResponse) {
+            // Add to final response
+            finalResponseText += '\n' + trimmedLine;
+          }
+          else if (isCollectingConsultation && !trimmedLine.includes('Compiling final response')) {
+            // Add line to consultation text
+            consultationText += (consultationText ? '\n' : '') + trimmedLine;
+          }
         }
-      });
+      }
+
+      // After the streaming is done, update the final response
+      if (finalResponseText) {
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastMessage = newMessages[newMessages.length - 1];
+          if (lastMessage.role === 'assistant') {
+            return [...prev.slice(0, -1), { 
+              ...lastMessage, 
+              content: finalResponseText.trim(),
+              stage: 'Consultation completed'
+            }];
+          }
+          return prev;
+        });
+      }
+
+      // Handle any remaining consultation
+      if (currentSpecialty && consultationText) {
+        updateConsultation(currentSpecialty, consultationText);
+      }
+
     } catch (error) {
+      console.error('Error:', error);
       setMessages((prev) => [
-        ...prev,
+        ...prev.slice(0, -1),
         {
           role: "assistant",
           content: "I apologize, but an error occurred. Please try again.",
+          stage: "Error"
         },
       ]);
     } finally {
       setIsLoading(false);
-      setConsultingSpecialties(new Set());
     }
+  };
+
+  // Helper function to update consultation in messages
+  const updateConsultation = (specialty: string, consultationText: string) => {
+    setSpecialtyStatuses(prev => 
+      prev.map(s => s.specialty === specialty ? { ...s, status: 'completed' } : s)
+    );
+
+    setMessages(prev => {
+      const newMessages = [...prev];
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage.role === 'assistant') {
+        const existingConsultations = lastMessage.consultations || [];
+        const consultationIndex = existingConsultations.findIndex(c => c.specialty === specialty);
+        
+        // Clean up the consultation text
+        const cleanedText = consultationText
+          .replace(/^\s*consultation:\s*/i, '') // Remove "consultation:" prefix
+          .trim();
+        
+        if (consultationIndex === -1) {
+          existingConsultations.push({ 
+            specialty, 
+            response: cleanedText 
+          });
+        } else {
+          existingConsultations[consultationIndex].response = cleanedText;
+        }
+
+        return [...prev.slice(0, -1), { ...lastMessage, consultations: existingConsultations }];
+      }
+      return prev;
+    });
   };
 
   return (
@@ -149,16 +300,23 @@ export function YesilAIChat() {
                 {message.role === "assistant" && (
                   <ConsultationProcess
                     consultations={message.consultations}
-                    consultingSpecialties={consultingSpecialties}
+                    specialtyStatuses={specialtyStatuses}
                     onConsultationClick={setActiveConsultation}
                     stage={message.stage}
+                    processingStage={message.processingStage}
                   />
                 )}
                 <div className="flex items-start gap-2">
                   {message.role === "assistant" && <Bot className="h-4 w-4 mt-1 text-gray-400" />}
-                  <ReactMarkdown className="prose prose-sm max-w-none prose-p:leading-normal prose-p:my-0">
-                    {message.content}
-                  </ReactMarkdown>
+                  {message.content.includes('Yesil AI is thinking on consultations') ? (
+                    <ThinkingIndicator />
+                  ) : (
+                    <ReactMarkdown 
+                      className="prose prose-sm max-w-none prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-h3:text-base prose-h2:text-lg"
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -206,7 +364,7 @@ export function YesilAIChat() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
               transition={{ duration: 0.1 }}
-              className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-md mx-4"
+              className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-2xl mx-4 max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
@@ -223,9 +381,11 @@ export function YesilAIChat() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <ReactMarkdown 
+                className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-1"
+              >
                 {activeConsultation.response}
-              </p>
+              </ReactMarkdown>
               <div className="mt-4 text-xs text-gray-400">
                 <p>For informational purposes only. Consult with a healthcare professional for medical advice.</p>
               </div>

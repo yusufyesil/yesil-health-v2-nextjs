@@ -2,56 +2,66 @@ import { motion } from "framer-motion";
 import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface Consultation {
-  specialty: string;
-  response: string;
-}
+import { Loader2 } from "lucide-react";
 
 interface ConsultationProcessProps {
-  consultations: Consultation[];
-  consultingSpecialties: Set<string>;
-  onConsultationClick: (consultation: Consultation) => void;
+  consultations: Array<{ specialty: string; response: string }>;
+  specialtyStatuses: Array<{ specialty: string; status: 'pending' | 'consulting' | 'completed' }>;
+  onConsultationClick: (consultation: { specialty: string; response: string }) => void;
   stage: string;
+  processingStage?: string;
 }
 
 export function ConsultationProcess({
   consultations,
-  consultingSpecialties,
+  specialtyStatuses,
   onConsultationClick,
   stage,
+  processingStage
 }: ConsultationProcessProps) {
   return (
-    <div className="bg-white border rounded-lg p-4 mb-4 shadow-sm">
-      <h3 className="text-sm font-medium text-gray-700 mb-2">{stage || "Yesil AI thinking on your question"}</h3>
-      {consultations && consultations.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {consultations.map((consultation, i) => (
-            <Button
-              key={i}
-              onClick={() => onConsultationClick(consultation)}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-auto p-1 text-left justify-start text-xs",
-                consultingSpecialties.has(consultation.specialty)
-                  ? "cursor-wait"
-                  : "hover:bg-transparent hover:underline"
-              )}
-            >
-              <span className="flex items-center">
-                {getSpecialtyIcon(consultation.specialty)}
-                <span className="ml-1">{consultation.specialty}</span>
-                <span className="ml-1">
-                  {consultingSpecialties.has(consultation.specialty) ? "⌛" : "✅"}
-                </span>
-              </span>
-            </Button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-gray-500">Analyzing your query...</p>
-      )}
+    <div className="space-y-2 mb-3">
+      {/* Processing Stage Indicator */}
+      <div className="text-sm text-gray-500 mb-2">
+        {processingStage || stage}
+      </div>
+
+      {/* Specialties Progress */}
+      <div className="flex flex-wrap gap-2">
+        {specialtyStatuses.map(({ specialty, status }) => (
+          <motion.button
+            key={specialty}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={() => {
+              const consultation = consultations.find(c => c.specialty === specialty);
+              if (consultation) {
+                onConsultationClick(consultation);
+              }
+            }}
+            disabled={status === 'pending'}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
+              {
+                'bg-gray-100 text-gray-500': status === 'pending',
+                'bg-orange-100 text-orange-700 animate-pulse': status === 'consulting',
+                'bg-gray-900 text-white hover:bg-gray-800': status === 'completed',
+                'cursor-pointer': status === 'completed',
+                'cursor-not-allowed': status === 'pending'
+              }
+            )}
+          >
+            {getSpecialtyIcon(specialty)}
+            <span>{specialty}</span>
+            {status === 'consulting' && (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            )}
+            {status === 'completed' && (
+              <span className="w-3 h-3 rounded-full bg-green-500 ml-1" />
+            )}
+          </motion.button>
+        ))}
+      </div>
     </div>
   );
 }
