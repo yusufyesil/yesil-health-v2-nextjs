@@ -3,6 +3,7 @@ import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface ConsultationProcessProps {
   consultations: Array<{ specialty: string; response: string }>;
@@ -10,6 +11,7 @@ interface ConsultationProcessProps {
   onConsultationClick: (consultation: { specialty: string; response: string }) => void;
   stage: string;
   processingStage?: string;
+  showStatus?: boolean;
 }
 
 export function ConsultationProcess({
@@ -17,16 +19,42 @@ export function ConsultationProcess({
   specialtyStatuses,
   onConsultationClick,
   stage,
-  processingStage
+  processingStage,
+  showStatus = true
 }: ConsultationProcessProps) {
+  const [longLoadingSpecialties, setLongLoadingSpecialties] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const timers = new Map<string, NodeJS.Timeout>();
+
+    specialtyStatuses.forEach(({ specialty, status }) => {
+      if (status === 'consulting') {
+        const timer = setTimeout(() => {
+          setLongLoadingSpecialties(prev => new Set([...prev, specialty]));
+        }, 3000);
+        timers.set(specialty, timer);
+      } else {
+        setLongLoadingSpecialties(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(specialty);
+          return newSet;
+        });
+      }
+    });
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [specialtyStatuses]);
+
   return (
     <div className="space-y-2 mb-3">
-      {/* Processing Stage Indicator */}
-      <div className="text-sm text-gray-500 mb-2">
-        {processingStage || stage}
-      </div>
+      {showStatus && (
+        <div className="text-sm text-gray-500 mb-2">
+          {processingStage || stage}
+        </div>
+      )}
 
-      {/* Specialties Progress */}
       <div className="flex flex-wrap gap-2">
         {specialtyStatuses.map(({ specialty, status }) => (
           <motion.button
@@ -51,14 +79,23 @@ export function ConsultationProcess({
               }
             )}
           >
-            {getSpecialtyIcon(specialty)}
-            <span>{specialty}</span>
-            {status === 'consulting' && (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            )}
-            {status === 'completed' && (
-              <span className="w-3 h-3 rounded-full bg-green-500 ml-1" />
-            )}
+            <div className="flex items-center gap-1.5">
+              {getSpecialtyIcon(specialty)}
+              <span>{specialty}</span>
+              {status === 'consulting' && (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {longLoadingSpecialties.has(specialty) && (
+                    <span className="text-[10px] text-orange-600/70 font-normal">
+                      searching medical database...
+                    </span>
+                  )}
+                </>
+              )}
+              {status === 'completed' && (
+                <span className="w-3 h-3 rounded-full bg-green-500 ml-1" />
+              )}
+            </div>
           </motion.button>
         ))}
       </div>

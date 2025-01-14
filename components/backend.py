@@ -61,7 +61,7 @@ VALID_SPECIALTIES = {
 def process_question(question):
     print(f"Processing question: {question}")
     messages = [
-        {"role": "system", "content": f"You are health consultant selector. I will give you the question, and you will select which specialties or expertise could be related to this question. Max 2 specialties. Just list specialties with a comma, and don't list any specialties not in this list. Here are all specialties: {VALID_SPECIALTIES}"},
+        {"role": "system", "content": f"You are health consultant selector. I will give you the question, and you will select which specialties or expertise could be related to this question. Min 1 max 4 specialities, select just relevant ones. Just list specialties with a comma, and don't list any specialties not in this list. Here are all specialties: {VALID_SPECIALTIES}"},
         {"role": "user", "content": question},
     ]
     response = get_gpt_response(messages)
@@ -119,7 +119,7 @@ async def stream_consultations(question: str) -> AsyncGenerator[str, None]:
                 question,
                 param=QueryParam(
                     mode="naive",
-                    response_type=f"You are a helpful {specialty} specialist. Provide a consultation."
+                    response_type=f"You are a helpful {specialty} specialist. Provide a detailed consultation by considering {specialty}-specific guidelines, common diagnostic criteria, and treatment options that giving you as medical literature. Provide a consultation with step-by-step reasoning."
                 )
             )
             specialty_responses[specialty] = reply
@@ -134,8 +134,22 @@ async def stream_consultations(question: str) -> AsyncGenerator[str, None]:
     # Step 3: Combine results into a final response
     yield "Compiling final response...\n"
     final_messages = [
-        {"role": "system", "content": "You are a health consultant. You will get a question and consultation notes from different specialists. Think on consultations and give your decision, suggestions."},
-        {"role": "user", "content": f"Question: {question}. Consultations: {specialty_responses}"},
+        {
+            "role": "system",
+            "content": (
+                "You are a health consultant tasked with synthesizing inputs from multiple specialists. "
+                "Consider the question and the consultation notes provided, evaluate the information critically, "
+                "and deliver a well-reasoned decision along with actionable suggestions."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Question: {question}\n\n"
+                f"Consultation Notes:\n"
+                f"{', '.join([f'{specialty}: {response}' for specialty, response in specialty_responses.items()])}"
+            ),
+        },
     ]
     final_response = get_gpt_response(final_messages)
     print(f"Final response: {final_response}")

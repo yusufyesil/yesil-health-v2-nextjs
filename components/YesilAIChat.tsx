@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { ConsultationProcess } from "./ConsultationProcess";
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Consultation {
   specialty: string;
@@ -20,9 +21,10 @@ interface Consultation {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  consultations?: Consultation[];
+  consultations: Consultation[];
   stage?: string;
   processingStage?: string;
+  specialtyStatuses?: SpecialtyStatus[];
 }
 
 // Add new interface for specialty status
@@ -53,7 +55,13 @@ export function YesilAIChat() {
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setMessages((prev) => [...prev, { role: "assistant", content: "", consultations: [], stage: "Processing your question..." }]);
+    setMessages((prev) => [...prev, { 
+      role: "assistant", 
+      content: "", 
+      consultations: [], 
+      specialtyStatuses: [], 
+      stage: "Processing your question..." 
+    }]);
     setIsLoading(true);
     setConsultingSpecialties(new Set());
     setSpecialtyStatuses([]); 
@@ -113,17 +121,16 @@ export function YesilAIChat() {
             const specialtiesText = trimmedLine.split('Specialties determined:')[1].trim();
             const specialties = specialtiesText.split(',').map(s => s.trim());
             
-            setSpecialtyStatuses(specialties.map(specialty => ({
-              specialty,
-              status: 'pending'
-            })));
-            
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
               if (lastMessage.role === 'assistant') {
                 return [...prev.slice(0, -1), { 
                   ...lastMessage, 
+                  specialtyStatuses: specialties.map(specialty => ({
+                    specialty,
+                    status: 'pending'
+                  })),
                   processingStage: `Consulting ${specialties.length} specialists...`,
                   stage: 'Specialist Consultation'
                 }];
@@ -141,9 +148,20 @@ export function YesilAIChat() {
             currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
             isCollectingConsultation = false;
             
-            setSpecialtyStatuses(prev => 
-              prev.map(s => s.specialty === currentSpecialty ? { ...s, status: 'consulting' } : s)
-            );
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                const updatedStatuses = (lastMessage.specialtyStatuses || []).map(s => 
+                  s.specialty === currentSpecialty ? { ...s, status: 'consulting' } : s
+                );
+                return [...prev.slice(0, -1), { 
+                  ...lastMessage, 
+                  specialtyStatuses: updatedStatuses
+                }];
+              }
+              return prev;
+            });
           }
           else if (trimmedLine.includes('consultation:')) {
             isCollectingConsultation = true;
@@ -177,6 +195,19 @@ export function YesilAIChat() {
           else if (trimmedLine.includes('Final Response:')) {
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
+            
+            // Update the stage to show it's completed
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                return [...prev.slice(0, -1), { 
+                  ...lastMessage, 
+                  stage: 'Consultation completed'  // This will trigger "Report" in the header
+                }];
+              }
+              return prev;
+            });
           }
           else if (isCollectingFinalResponse) {
             // Add to final response
@@ -227,32 +258,33 @@ export function YesilAIChat() {
 
   // Helper function to update consultation in messages
   const updateConsultation = (specialty: string, consultationText: string) => {
-    setSpecialtyStatuses(prev => 
-      prev.map(s => s.specialty === specialty ? { ...s, status: 'completed' } : s)
-    );
-
     setMessages(prev => {
       const newMessages = [...prev];
       const lastMessage = newMessages[newMessages.length - 1];
       if (lastMessage.role === 'assistant') {
+        // Update specialty statuses for this specific message
+        const updatedStatuses = lastMessage.specialtyStatuses?.map(s => 
+          s.specialty === specialty ? { ...s, status: 'completed' } : s
+        ) || [];
+
         const existingConsultations = lastMessage.consultations || [];
         const consultationIndex = existingConsultations.findIndex(c => c.specialty === specialty);
         
-        // Clean up the consultation text
         const cleanedText = consultationText
-          .replace(/^\s*consultation:\s*/i, '') // Remove "consultation:" prefix
+          .replace(/^\s*consultation:\s*/i, '')
           .trim();
         
-        if (consultationIndex === -1) {
-          existingConsultations.push({ 
-            specialty, 
-            response: cleanedText 
-          });
-        } else {
-          existingConsultations[consultationIndex].response = cleanedText;
-        }
+        const updatedConsultations = consultationIndex === -1 
+          ? [...existingConsultations, { specialty, response: cleanedText }]
+          : existingConsultations.map((c, i) => 
+              i === consultationIndex ? { ...c, response: cleanedText } : c
+            );
 
-        return [...prev.slice(0, -1), { ...lastMessage, consultations: existingConsultations }];
+        return [...prev.slice(0, -1), { 
+          ...lastMessage, 
+          consultations: updatedConsultations,
+          specialtyStatuses: updatedStatuses
+        }];
       }
       return prev;
     });
@@ -260,13 +292,18 @@ export function YesilAIChat() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-center py-4 border-b">
-        <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
-          alt="Yesil AI Logo"
-          className="h-8 w-8 object-contain mr-3"
-        />
-        <h1 className="text-xl font-medium text-gray-900">Yesil AI Virtual Hospital</h1>
+      <div className="flex items-center justify-center py-6 border-b bg-gradient-to-r from-teal-50 to-white">
+        <div className="flex items-center gap-3">
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+            alt="Yesil AI Logo"
+            className="h-10 w-10 object-contain"
+          />
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-semibold text-gray-900">Yesil AI</h1>
+            <p className="text-sm text-gray-500">Virtual Hospital</p>
+          </div>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
@@ -298,18 +335,44 @@ export function YesilAIChat() {
                 )}
               >
                 {message.role === "assistant" && (
-                  <ConsultationProcess
-                    consultations={message.consultations}
-                    specialtyStatuses={specialtyStatuses}
-                    onConsultationClick={setActiveConsultation}
-                    stage={message.stage}
-                    processingStage={message.processingStage}
-                  />
+                  <>
+                    {/* Header with logo and status - only for assistant messages */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+                          alt="Yesil AI Logo"
+                          className="h-5 w-5 object-contain"
+                        />
+                        <span className="font-semibold text-gray-900">Yesil AI</span>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {message.stage === "Consultation completed" 
+                          ? "Report" 
+                          : message.processingStage || message.stage}
+                      </span>
+                    </div>
+
+                    {/* Consultation Process without duplicate status */}
+                    <ConsultationProcess
+                      consultations={message.consultations}
+                      specialtyStatuses={message.specialtyStatuses || []}
+                      onConsultationClick={setActiveConsultation}
+                      stage={message.stage}
+                      showStatus={false} // Add this prop to hide status in ConsultationProcess
+                    />
+                  </>
                 )}
-                <div className="flex items-start gap-2">
-                  {message.role === "assistant" && <Bot className="h-4 w-4 mt-1 text-gray-400" />}
+
+                <div className="flex items-start">
                   {message.content.includes('Yesil AI is thinking on consultations') ? (
-                    <ThinkingIndicator />
+                    <div className="w-full space-y-3 mt-4">
+                      <ThinkingIndicator />
+                      <div className="space-y-3">
+                        <Skeleton className="h-4 w-[85%] bg-gray-200" />
+                        <Skeleton className="h-4 w-[75%] bg-gray-200" />
+                      </div>
+                    </div>
                   ) : (
                     <ReactMarkdown 
                       className="prose prose-sm max-w-none prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-h3:text-base prose-h2:text-lg"
