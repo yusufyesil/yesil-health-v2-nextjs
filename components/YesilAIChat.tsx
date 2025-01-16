@@ -291,7 +291,7 @@ export function YesilAIChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto bg-white rounded-lg shadow-sm overflow-hidden border">
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto bg-white rounded-lg shadow-sm overflow-hidden border mt-16">
       <div className="flex items-center justify-center py-6 border-b bg-gradient-to-r from-teal-50 to-white">
         <div className="flex items-center gap-3">
         <img
@@ -328,10 +328,10 @@ export function YesilAIChat() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={cn(
-                  "flex flex-col max-w-[80%] rounded-lg p-3",
+                  "flex flex-col max-w-[85%] rounded-lg p-4",
                   message.role === "user"
                     ? "ml-auto bg-[#40E0D0]/10"
-                    : "bg-gray-50"
+                    : "bg-white border border-gray-100 shadow-sm"
                 )}
               >
                 {message.role === "assistant" && (
