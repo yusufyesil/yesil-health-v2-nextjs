@@ -1,4 +1,4 @@
-// File: C:\Users\Yesil\Documents\GitHub\yesil-health-v2-nextjs\app\page.tsx
+// File: /Users/yusufyesil/Desktop/Products/AI Assistant/yesil-health-v2-nextjs/app/page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
