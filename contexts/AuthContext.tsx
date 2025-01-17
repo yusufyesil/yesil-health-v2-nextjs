@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   credits: number;
   loading: boolean;
+  isNewUser: boolean;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   updateCredits: (newCredits: number) => Promise<void>;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -38,13 +40,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (!userDoc.exists()) {
           console.log('Creating new user document');
+          setIsNewUser(true);
           await setDoc(userRef, {
             email: user.email,
             credits: 0,
-            createdAt: new Date()
+            createdAt: new Date(),
+            lastFreeCreditsReset: new Date()
           });
+        } else {
+          setIsNewUser(false);
+          const data = userDoc.data();
+          const lastReset = data.lastFreeCreditsReset?.toDate() || new Date(0);
+          const monthsSinceReset = (new Date().getTime() - lastReset.getTime()) / (1000 * 60 * 60 * 24 * 30);
+          
+          if (monthsSinceReset >= 1 && data.credits < 100) {
+            console.log('Resetting free credits');
+            await setDoc(userRef, {
+              ...data,
+              credits: 10,
+              lastFreeCreditsReset: new Date()
+            }, { merge: true });
+          }
         }
-        // Always get the latest data after potential creation
+        // Always get the latest data after potential creation or reset
         const latestDoc = await getDoc(userRef);
         const currentCredits = latestDoc.data()?.credits;
         console.log('Initial credits from Firestore:', currentCredits);
@@ -52,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         console.log('User signed out, resetting credits');
         setCredits(0);
+        setIsNewUser(false);
       }
       setLoading(false);
     });
@@ -154,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       credits, 
       loading, 
+      isNewUser,
       signInWithGoogle, 
       signOutUser,
       updateCredits 

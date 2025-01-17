@@ -6,15 +6,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
 export default function OnboardingPage() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, credits, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to main app if already authenticated
     if (user) {
-      router.push('/');
+      // If user has credits, go to main app
+      if (credits > 0) {
+        router.push('/');
+      } else {
+        // If user has no credits, go to pricing
+        router.push('/pricing');
+      }
     }
-  }, [user, router]);
+  }, [user, credits, router]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
