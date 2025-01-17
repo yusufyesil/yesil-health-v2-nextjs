@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,21 +11,6 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
-  useEffect(() => {
-    // Add Lemonsqueezy script
-    const script = document.createElement('script');
-    script.src = 'https://assets.lemonsqueezy.com/lemon.js';
-    script.defer = true;
-    document.body.appendChild(script);
-
-    return () => {
-      const existingScript = document.querySelector('script[src="https://assets.lemonsqueezy.com/lemon.js"]');
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
-
   const handlePurchaseClick = () => {
     setIsLoading(true);
     try {
@@ -35,7 +20,7 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
       checkoutUrl.searchParams.set('media', '0');
       checkoutUrl.searchParams.set('discount', '0');
       if (user?.uid) {
-        checkoutUrl.searchParams.set('data[userId]', user.uid);
+        checkoutUrl.searchParams.set('custom_data', JSON.stringify({ userId: user.uid }));
       }
       window.location.href = checkoutUrl.toString();
     } catch (error) {
