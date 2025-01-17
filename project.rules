@@ -103,4 +103,24 @@ Yesil AI Virtual Hospital is an AI-powered healthcare consultation platform that
 - Error tracking
 - User feedback collection
 
-Remember: This is a medical information tool and should always include appropriate disclaimers and encourage users to seek professional medical advice. 
+Remember: This is a medical information tool and should always include appropriate disclaimers and encourage users to seek professional medical advice.
+
+## Credit System
+
+### Credit Management
+- Track user credit balance
+- Deduct credits per consultation
+- Handle credit purchases through Lemonsqueezy
+- Maintain credit transaction history
+
+### Purchase Flow
+- Show current credit balance
+- Provide easy access to credit purchase
+- Handle successful/failed purchases
+- Update credits in real-time
+
+### Security
+- Verify Lemonsqueezy webhooks
+- Secure credit transactions
+- Prevent credit manipulation
+- Log all credit-related activities 

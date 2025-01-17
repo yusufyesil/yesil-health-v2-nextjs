@@ -12,6 +12,7 @@ import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { ConsultationProcess } from "./ConsultationProcess";
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreditBalance } from './CreditBalance';
 
 interface Consultation {
   specialty: string;
@@ -41,6 +42,7 @@ export function YesilAIChat() {
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
+  const [credits, setCredits] = useState<number>(100); // Default credits
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -51,6 +53,38 @@ export function YesilAIChat() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    
+    // Check credits
+    if (credits <= 0) {
+      const storeId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_STORE_ID;
+      const variantId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_VARIANT_ID;
+      
+      if (!window.LemonSqueezy?.Url?.Checkout?.Open) {
+        console.error('Lemon Squeezy not initialized');
+        return;
+      }
+
+      const checkoutOptions = {
+        storeId: storeId!,
+        variantId: variantId!,
+        checkoutOptions: {
+          onSuccess: async (data: any) => {
+            // Handle successful purchase
+            // Update credits and continue with the message
+            setCredits(prev => prev + 100); // Or whatever amount purchased
+          },
+          onClose: () => {
+            console.log('Checkout closed');
+          }
+        }
+      };
+
+      window.LemonSqueezy.Url.Checkout.Open(checkoutOptions);
+      return;
+    }
+
+    // Deduct credits
+    setCredits(prev => prev - 1);
 
     const userMessage = input.trim();
     setInput("");
@@ -292,11 +326,11 @@ export function YesilAIChat() {
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-center py-6 border-b bg-gradient-to-r from-teal-50 to-white">
+      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
         <div className="flex items-center gap-3">
-        <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
-          alt="Yesil AI Logo"
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+            alt="Yesil AI Logo"
             className="h-10 w-10 object-contain"
           />
           <div className="flex flex-col">
@@ -304,6 +338,7 @@ export function YesilAIChat() {
             <p className="text-sm text-gray-500">Virtual Hospital</p>
           </div>
         </div>
+        <CreditBalance credits={credits} />
       </div>
 
       <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
