@@ -2,6 +2,22 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
 import { doc, getFirestore, updateDoc, increment, getDoc } from 'firebase/firestore'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore'
+
+// Initialize Firebase Admin if not already initialized
+let adminApp;
+if (!getApps().length) {
+  adminApp = initializeApp({
+    credential: cert({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    })
+  });
+}
+
+const adminDb = getAdminFirestore();
 
 export async function POST(req: Request) {
   try {
@@ -70,32 +86,48 @@ export async function POST(req: Request) {
         
         // Only add credits if the order is paid and variant matches
         if (userId && orderStatus === 'paid' && variantId === expectedVariantId) {
-          const db = getFirestore()
-          const userRef = doc(db, 'users', userId)
-          
-          // Verify user exists
-          const userDoc = await getDoc(userRef)
-          if (!userDoc.exists()) {
-            console.error('User not found:', userId)
-            return new NextResponse('User not found', { status: 404 })
-          }
-          
-          // Add 100 credits for the test product
-          await updateDoc(userRef, {
-            credits: increment(100)
-          })
-          
-          console.log('Credits added successfully for user:', userId)
-          
-          return new NextResponse(JSON.stringify({
-            success: true,
-            message: 'Added 100 credits to user account'
-          }), { 
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json'
+          try {
+            // Get current credits
+            const userRef = adminDb.collection('users').doc(userId)
+            const userDoc = await userRef.get()
+            
+            if (!userDoc.exists) {
+              console.error('User document not found:', userId)
+              return new NextResponse('User not found', { status: 404 })
             }
-          })
+
+            const currentCredits = userDoc.data()?.credits || 0
+            console.log('Current credits:', currentCredits)
+
+            // Add 100 credits
+            await userRef.update({
+              credits: currentCredits + 100
+            })
+            
+            console.log('Credits updated successfully:', {
+              userId,
+              oldCredits: currentCredits,
+              newCredits: currentCredits + 100
+            })
+            
+            return new NextResponse(JSON.stringify({
+              success: true,
+              message: 'Added 100 credits to user account',
+              oldCredits: currentCredits,
+              newCredits: currentCredits + 100
+            }), { 
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+          } catch (error) {
+            console.error('Error updating credits:', error)
+            return new NextResponse(JSON.stringify({
+              success: false,
+              error: 'Failed to update credits'
+            }), { status: 500 })
+          }
         } else {
           console.log('Order not processed:', {
             reason: !userId ? 'No user ID' : !orderStatus ? 'Invalid order status' : 'Variant ID mismatch',
