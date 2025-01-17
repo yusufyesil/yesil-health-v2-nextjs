@@ -30,33 +30,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user?.email);
       setUser(user);
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
         
-        if (userDoc.exists()) {
-          setCredits(userDoc.data().credits || 0);
-        } else {
+        if (!userDoc.exists()) {
+          console.log('Creating new user document');
           await setDoc(userRef, {
             email: user.email,
             credits: 0,
             createdAt: new Date()
           });
-          setCredits(0);
         }
-
-        // Set up real-time listener for credits
-        const unsubscribeCredits = onSnapshot(userRef, (doc) => {
-          if (doc.exists()) {
-            setCredits(doc.data().credits || 0);
-          }
-        });
-
-        return () => {
-          unsubscribeCredits();
-        };
+        // Always get the latest data after potential creation
+        const latestDoc = await getDoc(userRef);
+        const currentCredits = latestDoc.data()?.credits;
+        console.log('Initial credits from Firestore:', currentCredits);
+        setCredits(typeof currentCredits === 'number' ? currentCredits : 0);
       } else {
+        console.log('User signed out, resetting credits');
         setCredits(0);
       }
       setLoading(false);
@@ -65,6 +59,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // Separate effect for credits listener
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up credits listener for user:', user.email);
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribeCredits = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        const newCredits = doc.data().credits;
+        console.log('Firestore credits update:', {
+          userId: user.uid,
+          newCredits,
+          previousCredits: credits
+        });
+        if (typeof newCredits === 'number') {
+          setCredits(newCredits);
+        } else {
+          console.warn('Invalid credits value in Firestore:', newCredits);
+        }
+      }
+    });
+
+    return () => {
+      console.log('Cleaning up credits listener');
+      unsubscribeCredits();
+    };
+  }, [user]);
+
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -72,16 +94,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         prompt: 'select_account'
       });
       const result = await signInWithPopup(auth, provider);
+      console.log('Google sign in successful:', result.user.email);
       
       // Create user document if it doesn't exist
-      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
-        await setDoc(doc(db, 'users', result.user.uid), {
+        console.log('Creating new user document after Google sign in');
+        await setDoc(userRef, {
           email: result.user.email,
           credits: 0,
           createdAt: new Date()
         });
-        setCredits(0);
       }
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
@@ -106,12 +130,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateCredits = async (newCredits: number) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('Attempted to update credits without user');
+      return;
+    }
+    console.log('Updating credits:', { userId: user.uid, newCredits });
     try {
-      await setDoc(doc(db, 'users', user.uid), { credits: newCredits }, { merge: true });
+      // Optimistic update
       setCredits(newCredits);
+      await setDoc(doc(db, 'users', user.uid), { credits: newCredits }, { merge: true });
+      console.log('Credits updated successfully');
     } catch (error) {
       console.error('Error updating credits:', error);
+      // Revert optimistic update on error
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      setCredits(userDoc.data()?.credits || 0);
     }
   };
 

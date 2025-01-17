@@ -13,6 +13,7 @@ import { ConsultationProcess } from "./ConsultationProcess";
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreditBalance } from './CreditBalance';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Consultation {
   specialty: string;
@@ -42,7 +43,7 @@ export function YesilAIChat() {
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
-  const [credits, setCredits] = useState<number>(0); // Default credits to 0
+  const { credits, updateCredits } = useAuth(); // Get credits and updateCredits from AuthContext
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -56,39 +57,21 @@ export function YesilAIChat() {
     
     // Check credits
     if (credits <= 0) {
-      const storeId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_STORE_ID;
-      const variantId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_VARIANT_ID;
-      
-      if (!window.LemonSqueezy?.Url?.Checkout?.Open) {
-        console.error('Lemon Squeezy not initialized');
-        return;
-      }
-
-      const checkoutOptions = {
-        storeId: storeId!,
-        variantId: variantId!,
-        checkoutOptions: {
-          onSuccess: async (data: any) => {
-            // Handle successful purchase
-            // Update credits and continue with the message
-            setCredits(prev => prev + 100); // Or whatever amount purchased
-          },
-          onClose: () => {
-            console.log('Checkout closed');
-          }
-        }
-      };
-
-      window.LemonSqueezy.Url.Checkout.Open(checkoutOptions);
+      const checkoutUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0";
+      window.location.href = checkoutUrl;
       return;
     }
 
     // Deduct credits
-    setCredits(prev => prev - 1);
+    await updateCredits(credits - 1);
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages(prev => [...prev, { 
+      role: "user", 
+      content: userMessage,
+      consultations: [] 
+    }]);
     setMessages((prev) => [...prev, { 
       role: "assistant", 
       content: "", 
