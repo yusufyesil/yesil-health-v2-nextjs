@@ -43,7 +43,7 @@ export function YesilAIChat() {
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
-  const { credits, updateCredits } = useAuth(); // Get credits and updateCredits from AuthContext
+  const { credits, updateCredits, user, signInWithGoogle } = useAuth();
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -54,10 +54,23 @@ export function YesilAIChat() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    // Check if user is signed in
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
     
     // Check credits
     if (credits <= 0) {
-      const checkoutUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0";
+      const baseUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11";
+      const params = new URLSearchParams({
+        embed: "1",
+        media: "0",
+        email: user.email || '',
+        checkout_data: JSON.stringify({ user_id: user.uid })
+      });
+      const checkoutUrl = `${baseUrl}?${params.toString()}`;
       window.location.href = checkoutUrl;
       return;
     }
@@ -309,171 +322,193 @@ export function YesilAIChat() {
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
-        <div className="flex items-center gap-3">
+      {!user ? (
+        <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
             alt="Yesil AI Logo"
-            className="h-10 w-10 object-contain"
+            className="h-20 w-20 object-contain"
           />
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-semibold text-gray-900">Yesil AI</h1>
-            <p className="text-sm text-gray-500">Virtual Hospital</p>
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-semibold text-gray-900">Welcome to Yesil AI</h1>
+            <p className="text-gray-500">Sign in to start your virtual hospital experience</p>
           </div>
-        </div>
-        <CreditBalance credits={credits} />
-      </div>
-
-      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-        <div className="space-y-6 py-4">
-          {messages.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-center text-gray-500 mt-8"
-            >
-              <Bot className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-              <p className="text-sm">Welcome to our Virtual Hospital. How can we assist you today?</p>
-            </motion.div>
-          )}
-          <AnimatePresence>
-            {messages.map((message, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className={cn(
-                  "flex flex-col max-w-[85%] rounded-lg p-4",
-                  message.role === "user"
-                    ? "ml-auto bg-[#40E0D0]/10"
-                    : "bg-white border border-gray-100 shadow-sm"
-                )}
-              >
-                {message.role === "assistant" && (
-                  <>
-                    {/* Header with logo and status - only for assistant messages */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
-                          alt="Yesil AI Logo"
-                          className="h-5 w-5 object-contain"
-                        />
-                        <span className="font-semibold text-gray-900">Yesil AI</span>
-                      </div>
-                      <span className="text-sm text-gray-500">
-                        {message.stage === "Consultation completed" 
-                          ? "Report" 
-                          : message.processingStage || message.stage}
-                      </span>
-                    </div>
-
-                    {/* Consultation Process without duplicate status */}
-                  <ConsultationProcess
-                    consultations={message.consultations}
-                      specialtyStatuses={message.specialtyStatuses || []}
-                    onConsultationClick={setActiveConsultation}
-                    stage={message.stage}
-                      showStatus={false} // Add this prop to hide status in ConsultationProcess
-                    />
-                  </>
-                )}
-
-                <div className="flex items-start">
-                  {message.content.includes('Yesil AI is thinking on consultations') ? (
-                    <div className="w-full space-y-3 mt-4">
-                      <ThinkingIndicator />
-                      <div className="space-y-3">
-                        <Skeleton className="h-4 w-[85%] bg-gray-200" />
-                        <Skeleton className="h-4 w-[75%] bg-gray-200" />
-                      </div>
-                    </div>
-                  ) : (
-                    <ReactMarkdown 
-                      className="prose prose-sm max-w-none prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-h3:text-base prose-h2:text-lg"
-                    >
-                    {message.content}
-                  </ReactMarkdown>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </ScrollArea>
-
-      <form onSubmit={handleSubmit} className="border-t p-4">
-        <div className="flex gap-2 items-start">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Describe your health concerns..."
-            className="flex-1 min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-          />
           <Button
-            type="submit"
-            size="icon"
-            disabled={isLoading || !input.trim()}
-            className="shrink-0 h-[38px] w-[38px] rounded-md bg-[#14ca9e] hover:bg-[#14ca9e]/90"
+            onClick={signInWithGoogle}
+            className="bg-[#14ca9e] hover:bg-[#14ca9e]/90 text-white"
           >
-            <SendHorizontal className="h-4 w-4" />
+            Sign in with Google
           </Button>
         </div>
-      </form>
+      ) : (
+        <>
+          <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
+            <div className="flex items-center gap-3">
+              <img
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+                alt="Yesil AI Logo"
+                className="h-10 w-10 object-contain"
+              />
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-semibold text-gray-900">Yesil AI</h1>
+                <p className="text-sm text-gray-500">Virtual Hospital</p>
+              </div>
+            </div>
+            <CreditBalance credits={credits} />
+          </div>
 
-      {/* Popup for consultation details */}
-      <AnimatePresence>
-        {activeConsultation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm"
-            onClick={() => setActiveConsultation(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              transition={{ duration: 0.1 }}
-              className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-2xl mx-4 max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                  {getSpecialtyIcon(activeConsultation.specialty)}
-                  {activeConsultation.specialty}
-                </h2>
-                <Button
-                  onClick={() => setActiveConsultation(null)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-gray-500"
+          <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+            <div className="space-y-6 py-4">
+              {messages.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center text-gray-500 mt-8"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <ReactMarkdown 
-                className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-1"
+                  <Bot className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                  <p className="text-sm">Welcome to our Virtual Hospital. How can we assist you today?</p>
+                </motion.div>
+              )}
+              <AnimatePresence>
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={cn(
+                      "flex flex-col max-w-[85%] rounded-lg p-4",
+                      message.role === "user"
+                        ? "ml-auto bg-[#40E0D0]/10"
+                        : "bg-white border border-gray-100 shadow-sm"
+                    )}
+                  >
+                    {message.role === "assistant" && (
+                      <>
+                        {/* Header with logo and status - only for assistant messages */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+                              alt="Yesil AI Logo"
+                              className="h-5 w-5 object-contain"
+                            />
+                            <span className="font-semibold text-gray-900">Yesil AI</span>
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            {message.stage === "Consultation completed" 
+                              ? "Report" 
+                              : message.processingStage || message.stage}
+                          </span>
+                        </div>
+
+                        {/* Consultation Process without duplicate status */}
+                      <ConsultationProcess
+                        consultations={message.consultations}
+                          specialtyStatuses={message.specialtyStatuses || []}
+                        onConsultationClick={setActiveConsultation}
+                        stage={message.stage}
+                          showStatus={false} // Add this prop to hide status in ConsultationProcess
+                      />
+                    </>
+                  )}
+
+                  <div className="flex items-start">
+                    {message.content.includes('Yesil AI is thinking on consultations') ? (
+                      <div className="w-full space-y-3 mt-4">
+                        <ThinkingIndicator />
+                        <div className="space-y-3">
+                          <Skeleton className="h-4 w-[85%] bg-gray-200" />
+                          <Skeleton className="h-4 w-[75%] bg-gray-200" />
+                        </div>
+                      </div>
+                    ) : (
+                      <ReactMarkdown 
+                        className="prose prose-sm max-w-none prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-h3:text-base prose-h2:text-lg"
+                      >
+                      {message.content}
+                    </ReactMarkdown>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </ScrollArea>
+
+        <form onSubmit={handleSubmit} className="border-t p-4">
+          <div className="flex gap-2 items-start">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Describe your health concerns..."
+              className="flex-1 min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={isLoading || !input.trim()}
+              className="shrink-0 h-[38px] w-[38px] rounded-md bg-[#14ca9e] hover:bg-[#14ca9e]/90"
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+        </form>
+
+        {/* Popup for consultation details */}
+        <AnimatePresence>
+          {activeConsultation && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm"
+              onClick={() => setActiveConsultation(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                transition={{ duration: 0.1 }}
+                className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-2xl mx-4 max-h-[80vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
               >
-                {activeConsultation.response}
-              </ReactMarkdown>
-              <div className="mt-4 text-xs text-gray-400">
-                <p>For informational purposes only. Consult with a healthcare professional for medical advice.</p>
-              </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                    {getSpecialtyIcon(activeConsultation.specialty)}
+                    {activeConsultation.specialty}
+                  </h2>
+                  <Button
+                    onClick={() => setActiveConsultation(null)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-gray-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <ReactMarkdown 
+                  className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-1"
+                >
+                  {activeConsultation.response}
+                </ReactMarkdown>
+                <div className="mt-4 text-xs text-gray-400">
+                  <p>For informational purposes only. Consult with a healthcare professional for medical advice.</p>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </>
+      )}
     </div>
   );
 }
