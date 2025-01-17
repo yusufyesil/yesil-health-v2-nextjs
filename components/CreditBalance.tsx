@@ -14,19 +14,21 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
   const handlePurchaseClick = () => {
     setIsLoading(true);
     try {
-      // Add user ID to the checkout URL
-      const checkoutUrl = new URL("https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11");
-      checkoutUrl.searchParams.set('embed', '1');
-      checkoutUrl.searchParams.set('media', '0');
-      checkoutUrl.searchParams.set('discount', '0');
+      // Create checkout URL with proper custom data format
+      const baseUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11";
+      const params = new URLSearchParams({
+        'embed': '1',
+        'media': '0',
+        'discount': '0'
+      });
+      
+      // Add user ID in the correct format
       if (user?.uid) {
-        // Pass user ID in the custom_data parameter
-        const customData = {
-          user_id: user.uid
-        };
-        checkoutUrl.searchParams.set('custom_data', JSON.stringify(customData));
+        params.append('checkout[custom][user_id]', user.uid);
       }
-      window.location.href = checkoutUrl.toString();
+
+      const checkoutUrl = `${baseUrl}?${params.toString()}`;
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error('Error opening checkout:', error);
       setIsLoading(false);
