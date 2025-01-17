@@ -42,7 +42,7 @@ export function YesilAIChat() {
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
-  const [credits, setCredits] = useState<number>(100); // Default credits
+  const [credits, setCredits] = useState<number>(0); // Default credits to 0
 
   useEffect(() => {
     if (scrollAreaRef.current) {

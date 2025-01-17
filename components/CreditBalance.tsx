@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreditBalanceProps {
   credits: number;
@@ -8,6 +9,7 @@ interface CreditBalanceProps {
 
 export function CreditBalance({ credits }: CreditBalanceProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     // Add Lemonsqueezy script
@@ -27,8 +29,15 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
   const handlePurchaseClick = () => {
     setIsLoading(true);
     try {
-      // Open the direct Lemon Squeezy checkout URL
-      window.location.href = "https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0&discount=0";
+      // Add user ID to the checkout URL
+      const checkoutUrl = new URL("https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11");
+      checkoutUrl.searchParams.set('embed', '1');
+      checkoutUrl.searchParams.set('media', '0');
+      checkoutUrl.searchParams.set('discount', '0');
+      if (user?.uid) {
+        checkoutUrl.searchParams.set('custom[userId]', user.uid);
+      }
+      window.location.href = checkoutUrl.toString();
     } catch (error) {
       console.error('Error opening checkout:', error);
       setIsLoading(false);
@@ -41,27 +50,23 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
         <Coins className="h-4 w-4 text-[#14ca9e]" />
         <span className="text-sm font-medium">{credits} Credits</span>
       </div>
-      <a 
-        href="https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0&discount=0" 
-        className="lemonsqueezy-button"
+      <Button
+        onClick={handlePurchaseClick}
+        disabled={isLoading}
+        className="bg-[#14ca9e] hover:bg-[#14ca9e]/90 text-white rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2"
       >
-        <Button
-          disabled={isLoading}
-          className="bg-[#14ca9e] hover:bg-[#14ca9e]/90 text-white rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin">⌛</span>
-              Processing...
-            </>
-          ) : (
-            <>
-              <Coins className="h-4 w-4" />
-              Buy TEST Credits
-            </>
-          )}
-        </Button>
-      </a>
+        {isLoading ? (
+          <>
+            <span className="animate-spin">⌛</span>
+            Processing...
+          </>
+        ) : (
+          <>
+            <Coins className="h-4 w-4" />
+            Buy TEST Credits
+          </>
+        )}
+      </Button>
     </div>
   );
 } 
