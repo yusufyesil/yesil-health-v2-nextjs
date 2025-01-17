@@ -52,9 +52,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error) {
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      const result = await signInWithPopup(auth, provider);
+      
+      // Create user document if it doesn't exist
+      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      if (!userDoc.exists()) {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          email: result.user.email,
+          credits: 0,
+          createdAt: new Date()
+        });
+        setCredits(0);
+      }
+    } catch (error: any) {
       console.error('Error signing in with Google:', error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.log('Popup closed by user');
+        return;
+      }
+      if (error.code === 'auth/popup-blocked') {
+        console.error('Popup was blocked by the browser');
+        // You might want to show a message to the user here
+        return;
+      }
     }
   };
 
