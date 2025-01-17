@@ -35,7 +35,7 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
       checkoutUrl.searchParams.set('media', '0');
       checkoutUrl.searchParams.set('discount', '0');
       if (user?.uid) {
-        checkoutUrl.searchParams.set('custom[userId]', user.uid);
+        checkoutUrl.searchParams.set('data[userId]', user.uid);
       }
       window.location.href = checkoutUrl.toString();
     } catch (error) {
