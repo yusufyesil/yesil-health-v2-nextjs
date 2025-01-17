@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface CreditBalanceProps {
   credits: number;
@@ -9,25 +8,12 @@ interface CreditBalanceProps {
 
 export function CreditBalance({ credits }: CreditBalanceProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
 
   const handlePurchaseClick = () => {
     setIsLoading(true);
     try {
-      // Create checkout URL with proper custom data format
-      const baseUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11";
-      const params = new URLSearchParams({
-        'embed': '1',
-        'media': '0',
-        'discount': '0'
-      });
-      
-      // Add user ID in the correct format
-      if (user?.uid) {
-        params.append('checkout[custom][user_id]', user.uid);
-      }
-
-      const checkoutUrl = `${baseUrl}?${params.toString()}`;
+      // Simple checkout URL without custom data
+      const checkoutUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0";
       window.location.href = checkoutUrl;
     } catch (error) {
       console.error('Error opening checkout:', error);

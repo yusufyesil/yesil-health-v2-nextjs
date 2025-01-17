@@ -68,45 +68,43 @@ export async function POST(req: Request) {
     // Handle different webhook events
     switch (eventName) {
       case 'order_created':
-        // Get user ID from custom data in meta
-        const customData = event.meta.custom_data
-        const userId = customData?.user_id
+        const userEmail = event.data.attributes.user_email
         const orderStatus = event.data.attributes.status
         const variantId = event.data.attributes.first_order_item.variant_id.toString()
         const expectedVariantId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_VARIANT_ID
         
         console.log('Order details:', {
-          userId,
+          userEmail,
           orderStatus,
           total: event.data.attributes.total,
-          customData,
           variantId,
           expectedVariantId,
-          fullPayload: event // Log full payload for debugging
+          fullPayload: event
         })
         
         // Only add credits if the order is paid and variant matches
-        if (userId && orderStatus === 'paid' && variantId === expectedVariantId) {
+        if (userEmail && orderStatus === 'paid' && variantId === expectedVariantId) {
           try {
-            // Get current credits
-            const userRef = adminDb.collection('users').doc(userId)
-            const userDoc = await userRef.get()
+            // Get user document by email
+            const usersRef = adminDb.collection('users')
+            const userSnapshot = await usersRef.where('email', '==', userEmail).limit(1).get()
             
-            if (!userDoc.exists) {
-              console.error('User document not found:', userId)
+            if (userSnapshot.empty) {
+              console.error('User not found with email:', userEmail)
               return new NextResponse('User not found', { status: 404 })
             }
 
+            const userDoc = userSnapshot.docs[0]
             const currentCredits = userDoc.data()?.credits || 0
             console.log('Current credits:', currentCredits)
 
             // Add 100 credits
-            await userRef.update({
+            await userDoc.ref.update({
               credits: currentCredits + 100
             })
             
             console.log('Credits updated successfully:', {
-              userId,
+              userEmail,
               oldCredits: currentCredits,
               newCredits: currentCredits + 100
             })
@@ -131,8 +129,8 @@ export async function POST(req: Request) {
           }
         } else {
           console.log('Order not processed:', {
-            reason: !userId ? 'No user ID' : !orderStatus ? 'Invalid order status' : 'Variant ID mismatch',
-            userId,
+            reason: !userEmail ? 'No user email' : !orderStatus ? 'Invalid order status' : 'Variant ID mismatch',
+            userEmail,
             orderStatus,
             variantId,
             expectedVariantId
