@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreditBalanceProps {
   credits: number;
@@ -10,6 +11,7 @@ interface CreditBalanceProps {
 export function CreditBalance({ credits }: CreditBalanceProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Add Lemonsqueezy script
@@ -27,6 +29,15 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
   }, []);
 
   const handlePurchaseClick = () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to purchase credits",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Add user ID to the checkout URL
@@ -34,13 +45,16 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
       checkoutUrl.searchParams.set('embed', '1');
       checkoutUrl.searchParams.set('media', '0');
       checkoutUrl.searchParams.set('discount', '0');
-      if (user?.uid) {
-        checkoutUrl.searchParams.set('custom[userId]', user.uid);
-      }
+      checkoutUrl.searchParams.set('custom[userId]', user.uid);
       window.location.href = checkoutUrl.toString();
     } catch (error) {
       console.error('Error opening checkout:', error);
       setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to open checkout",
+        variant: "destructive"
+      });
     }
   };
 
