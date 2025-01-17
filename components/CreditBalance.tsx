@@ -20,15 +20,10 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
       checkoutUrl.searchParams.set('media', '0');
       checkoutUrl.searchParams.set('discount', '0');
       if (user?.uid) {
-        // Pass custom data in the format expected by Lemon Squeezy
-        const customData = {
-          meta: {
-            custom_data: {
-              userId: user.uid
-            }
-          }
-        };
-        checkoutUrl.searchParams.set('custom_data', JSON.stringify(customData));
+        // Pass custom data exactly as shown in the documentation
+        checkoutUrl.searchParams.set('custom_data', JSON.stringify({
+          user_id: user.uid
+        }));
       }
       window.location.href = checkoutUrl.toString();
     } catch (error) {

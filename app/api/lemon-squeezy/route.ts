@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       case 'order_created':
         // Get user ID from custom data in meta
         const customData = event.meta.custom_data
-        const userId = customData?.userId
+        const userId = customData?.user_id
         const orderStatus = event.data.attributes.status
         const variantId = event.data.attributes.first_order_item.variant_id.toString()
         const expectedVariantId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_VARIANT_ID
