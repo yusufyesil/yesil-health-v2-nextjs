@@ -9,7 +9,7 @@ import {
   onAuthStateChanged,
   User 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -27,21 +27,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        
         if (userDoc.exists()) {
           setCredits(userDoc.data().credits || 0);
         } else {
-          await setDoc(doc(db, 'users', user.uid), {
+          await setDoc(userRef, {
             email: user.email,
-            credits: 0, // Start with 0 credits
+            credits: 0,
             createdAt: new Date()
           });
           setCredits(0);
         }
+
+        // Set up real-time listener for credits
+        const unsubscribeCredits = onSnapshot(userRef, (doc) => {
+          if (doc.exists()) {
+            setCredits(doc.data().credits || 0);
+          }
+        });
+
+        return () => {
+          unsubscribeCredits();
+        };
+      } else {
+        setCredits(0);
       }
       setLoading(false);
     });
@@ -75,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (error.code === 'auth/popup-blocked') {
         console.error('Popup was blocked by the browser');
-        // You might want to show a message to the user here
         return;
       }
     }
