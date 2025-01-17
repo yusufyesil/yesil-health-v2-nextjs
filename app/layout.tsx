@@ -16,6 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
+      </head>
       <body>
         <AuthProvider>
           <Header />

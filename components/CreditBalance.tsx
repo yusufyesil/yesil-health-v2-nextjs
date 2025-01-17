@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreditBalanceProps {
   credits: number;
@@ -8,13 +9,26 @@ interface CreditBalanceProps {
 
 export function CreditBalance({ credits }: CreditBalanceProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   const handlePurchaseClick = () => {
     setIsLoading(true);
     try {
-      // Simple checkout URL without custom data
-      const checkoutUrl = "https://yesilhealth.lemonsqueezy.com/checkout/buy/17283596-b745-4deb-bf66-f4492bfddb11?embed=1&media=0";
-      window.location.href = checkoutUrl;
+      const baseUrl = "https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11";
+      const params = new URLSearchParams({
+        'embed': '1',
+        'discount': '0',
+        'checkout[email]': user?.email || ''
+      });
+      const checkoutUrl = `${baseUrl}?${params.toString()}`;
+      
+      // Create and click a temporary link with the lemonsqueezy-button class
+      const link = document.createElement('a');
+      link.href = checkoutUrl;
+      link.className = 'lemonsqueezy-button';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Error opening checkout:', error);
       setIsLoading(false);
