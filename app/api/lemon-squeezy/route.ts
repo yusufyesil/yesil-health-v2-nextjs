@@ -68,8 +68,8 @@ export async function POST(req: Request) {
     // Handle different webhook events
     switch (eventName) {
       case 'order_created':
-        // Get user ID from custom data
-        const customData = event.data.attributes.custom_data
+        // Get user ID from custom data in meta
+        const customData = event.meta.custom_data
         const userId = customData?.userId
         const orderStatus = event.data.attributes.status
         const variantId = event.data.attributes.first_order_item.variant_id.toString()
