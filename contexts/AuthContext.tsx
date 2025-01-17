@@ -37,10 +37,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           await setDoc(doc(db, 'users', user.uid), {
             email: user.email,
-            credits: 5, // Start with 5 free credits
+            credits: 0, // Start with 0 credits
             createdAt: new Date()
           });
-          setCredits(5);
+          setCredits(0);
         }
       }
       setLoading(false);

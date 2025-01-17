@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
+import { doc, getFirestore, updateDoc, increment, getDoc } from 'firebase/firestore'
 
 export async function POST(req: Request) {
   try {
@@ -28,7 +29,31 @@ export async function POST(req: Request) {
     // Handle different webhook events
     switch (eventName) {
       case 'order_created':
-        // Handle new order
+        const userId = event.data.attributes.custom_data?.userId
+        const orderStatus = event.data.attributes.status
+        
+        // Only add credits if the order is paid
+        if (userId && orderStatus === 'paid') {
+          const db = getFirestore()
+          const userRef = doc(db, 'users', userId)
+          
+          // Verify user exists
+          const userDoc = await getDoc(userRef)
+          if (!userDoc.exists()) {
+            console.error('User not found:', userId)
+            return new NextResponse('User not found', { status: 404 })
+          }
+          
+          // Add 100 credits
+          await updateDoc(userRef, {
+            credits: increment(100)
+          })
+          
+          return new NextResponse(JSON.stringify({
+            success: true,
+            message: 'Added 100 credits to user account'
+          }), { status: 200 })
+        }
         break
       case 'subscription_created':
         // Handle new subscription
