@@ -1,0 +1,126 @@
+# Yesil AI Virtual Hospital - Project Rules & Guidelines
+
+## Project Overview
+Yesil AI Virtual Hospital is an AI-powered healthcare consultation platform that connects users with specialized medical knowledge through a chat interface. The system processes user queries through multiple medical specialties to provide comprehensive health information.
+
+## Design Guidelines
+
+### Colors
+- Primary Color: #14ca9e (Yesil Green)
+- Secondary Colors:
+  - Gray-900: For text and icons
+  - Gray-200: For borders and dividers
+  - White: For backgrounds
+  - Orange: For processing states
+  - Green: For completion indicators
+
+### Typography
+- Font Family: System default (Arial, Helvetica, sans-serif)
+- Text Sizes:
+  - Headers: text-2xl (24px)
+  - Subheaders: text-lg (18px)
+  - Body: text-sm (14px)
+  - Small text: text-xs (12px)
+
+### Components
+1. Chat Container
+   - Full-height layout
+   - Max width: 5xl
+   - Rounded corners with light shadow
+   - White background
+
+2. Message Bubbles
+   - User messages: Light green background (#40E0D0/10)
+   - AI messages: White with border
+   - Max width: 85% of container
+
+3. Specialty Indicators
+   - Pending: Gray background
+   - Processing: Orange background with spinner
+   - Completed: Black background with green dot
+
+## Interaction Rules
+
+### Chat Flow
+1. Initial Analysis
+   - Show "Analyzing your question..." status
+   - Determine relevant specialties
+
+2. Specialist Consultation
+   - Display specialty cards with status indicators
+   - Show processing animation for active consultations
+   - Allow clicking on completed consultations
+
+3. Final Response
+   - Show thinking animation during compilation
+   - Display final response with markdown formatting
+
+### Response Format
+- Consultations: Full markdown support with headers
+- Final Response: Concise summary with recommendations
+- All medical terms should be properly formatted
+
+## Technical Guidelines
+
+### API Integration
+- Endpoint: /api/consultation
+- Streaming response handling
+- Error handling with user-friendly messages
+
+### State Management
+- Track consultation status per specialty
+- Maintain message history
+- Handle loading states
+
+### Performance
+- Optimize markdown rendering
+- Smooth animations
+- Efficient streaming updates
+
+## Accessibility
+- Keyboard navigation support
+- Clear visual feedback
+- Readable text contrast
+- Proper ARIA labels
+
+## Security Considerations
+- Sanitize markdown input
+- Validate API responses
+- Protect sensitive information
+- Rate limiting on API calls
+
+## Future Enhancements
+1. Dark mode support
+2. Voice input
+3. Image analysis
+4. Appointment scheduling
+5. Medical history integration
+6. Multi-language support
+
+## Maintenance
+- Regular dependency updates
+- Performance monitoring
+- Error tracking
+- User feedback collection
+
+Remember: This is a medical information tool and should always include appropriate disclaimers and encourage users to seek professional medical advice.
+
+## Credit System
+
+### Credit Management
+- Track user credit balance
+- Deduct credits per consultation
+- Handle credit purchases through Lemonsqueezy
+- Maintain credit transaction history
+
+### Purchase Flow
+- Show current credit balance
+- Provide easy access to credit purchase
+- Handle successful/failed purchases
+- Update credits in real-time
+
+### Security
+- Verify Lemonsqueezy webhooks
+- Secure credit transactions
+- Prevent credit manipulation
+- Log all credit-related activities 

@@ -1,5 +1,6 @@
 node_modules
 next
+.next
 /.next
 .next/cache/webpack/client-development-fallback/0.pack.gz
 .next/cache/webpack/client-development-fallback/index.pack.gz

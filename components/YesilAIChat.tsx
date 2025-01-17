@@ -12,6 +12,7 @@ import { getSpecialtyIcon } from "@/lib/specialtyIcons";
 import { ConsultationProcess } from "./ConsultationProcess";
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreditBalance } from './CreditBalance';
 
 interface Consultation {
   specialty: string;
@@ -41,6 +42,24 @@ export function YesilAIChat() {
   const [consultingSpecialties, setConsultingSpecialties] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [specialtyStatuses, setSpecialtyStatuses] = useState<SpecialtyStatus[]>([]);
+  const [credits, setCredits] = useState<number>(0); // Changed default to 0
+
+  // Add useEffect to fetch initial credits
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const response = await fetch('/api/credits');
+        if (response.ok) {
+          const data = await response.json();
+          setCredits(data.credits);
+        }
+      } catch (error) {
+        console.error('Error fetching credits:', error);
+      }
+    };
+
+    fetchCredits();
+  }, []);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -51,6 +70,38 @@ export function YesilAIChat() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    
+    // Check credits
+    if (credits <= 0) {
+      const storeId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_STORE_ID;
+      const variantId = process.env.NEXT_PUBLIC_LEMONSQUEEZY_VARIANT_ID;
+      
+      if (!window.LemonSqueezy?.Url?.Checkout?.Open) {
+        console.error('Lemon Squeezy not initialized');
+        return;
+      }
+
+      const checkoutOptions = {
+        storeId: storeId!,
+        variantId: variantId!,
+        checkoutOptions: {
+          onSuccess: async (data: any) => {
+            // Handle successful purchase
+            // Update credits and continue with the message
+            setCredits(prev => prev + 100); // Or whatever amount purchased
+          },
+          onClose: () => {
+            console.log('Checkout closed');
+          }
+        }
+      };
+
+      window.LemonSqueezy.Url.Checkout.Open(checkoutOptions);
+      return;
+    }
+
+    // Deduct credits
+    setCredits(prev => prev - 1);
 
     const userMessage = input.trim();
     setInput("");
@@ -291,12 +342,12 @@ export function YesilAIChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto bg-white rounded-lg shadow-sm overflow-hidden border mt-16">
-      <div className="flex items-center justify-center py-6 border-b bg-gradient-to-r from-teal-50 to-white">
+    <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
+      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
         <div className="flex items-center gap-3">
-        <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
-          alt="Yesil AI Logo"
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
+            alt="Yesil AI Logo"
             className="h-10 w-10 object-contain"
           />
           <div className="flex flex-col">
@@ -304,6 +355,7 @@ export function YesilAIChat() {
             <p className="text-sm text-gray-500">Virtual Hospital</p>
           </div>
         </div>
+        <CreditBalance credits={credits} />
       </div>
 
       <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
@@ -387,13 +439,13 @@ export function YesilAIChat() {
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-white p-4">
-        <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+      <form onSubmit={handleSubmit} className="border-t p-4">
+        <div className="flex gap-2 items-start">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe your health concerns..."
-            className="min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
+            className="flex-1 min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -405,12 +457,12 @@ export function YesilAIChat() {
             type="submit"
             size="icon"
             disabled={isLoading || !input.trim()}
-            className="shrink-0 h-[38px] w-[38px] rounded-md bg-gray-900 hover:bg-gray-800"
+            className="shrink-0 h-[38px] w-[38px] rounded-md bg-[#14ca9e] hover:bg-[#14ca9e]/90"
           >
             <SendHorizontal className="h-4 w-4" />
           </Button>
-        </form>
-      </div>
+        </div>
+      </form>
 
       {/* Popup for consultation details */}
       <AnimatePresence>

@@ -2,8 +2,10 @@ import { YesilAIChat } from "@/components/YesilAIChat";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50/50 p-4">
-      <YesilAIChat />
+    <main className="h-screen px-4">
+      <div className="h-full max-w-5xl mx-auto">
+        <YesilAIChat />
+      </div>
     </main>
   );
 }
