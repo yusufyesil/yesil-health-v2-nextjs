@@ -7,7 +7,9 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
-  User 
+  User,
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -115,7 +117,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-      const result = await signInWithPopup(auth, provider);
+
+      // Check if running in a mobile browser
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      let result;
+      if (isMobile) {
+        // Use redirect method for mobile
+        await signInWithRedirect(auth, provider);
+        result = await getRedirectResult(auth);
+      } else {
+        // Use popup for desktop
+        result = await signInWithPopup(auth, provider);
+      }
+
+      if (!result) return; // User cancelled or redirect not completed yet
+
       console.log('Google sign in successful:', result.user.email);
       
       // Create user document if it doesn't exist
@@ -125,8 +142,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Creating new user document after Google sign in');
         await setDoc(userRef, {
           email: result.user.email,
-          credits: 0,
-          createdAt: new Date()
+          credits: 10,
+          createdAt: new Date(),
+          lastFreeCreditsReset: new Date()
         });
       }
     } catch (error: any) {
