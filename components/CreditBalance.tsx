@@ -73,6 +73,10 @@ export function CreditBalance({ credits }: CreditBalanceProps) {
             {user?.email}
           </div>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleBuyCredits} className="cursor-pointer">
+            <CreditCard className="mr-2 h-4 w-4" />
+            <span>Buy Credits</span>
+          </DropdownMenuItem>
           <DropdownMenuItem 
             onClick={() => window.location.href = 'mailto:hello@yesilhealth.com?subject=Contact'}
             className="cursor-pointer"

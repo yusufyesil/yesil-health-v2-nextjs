@@ -228,6 +228,12 @@ export function YesilAIChat() {
             });
           }
           else if (trimmedLine.includes('Final Response:')) {
+            // Save last consultation if exists
+            if (currentSpecialty && consultationText) {
+              updateConsultation(currentSpecialty, consultationText);
+              consultationText = '';
+            }
+            
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
             
@@ -247,8 +253,8 @@ export function YesilAIChat() {
             });
           }
           else if (isCollectingFinalResponse) {
-            // Add to final response and update immediately
             finalResponseText += '\n' + trimmedLine;
+            // Update the message content immediately
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
