@@ -373,8 +373,8 @@ export function YesilAIChat() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
+    <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border sm:border">
+      <div className="flex items-center justify-between py-6 px-4 sm:px-6 border-b bg-gradient-to-r from-teal-50 to-white">
         <div className="flex items-center gap-3">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
@@ -389,7 +389,7 @@ export function YesilAIChat() {
         <CreditBalance credits={credits} />
       </div>
 
-      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 px-2 sm:px-4" ref={scrollAreaRef}>
         <div className="space-y-6 py-4">
           {messages.length === 0 && (
             <motion.div
@@ -505,7 +505,7 @@ export function YesilAIChat() {
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             <span className="text-sm font-medium">
-                              {message.processingStage || "Processing your question..."}
+                              {message.processingStage}
                             </span>
                           </div>
                           <div className="space-y-2.5">
