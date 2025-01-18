@@ -11,21 +11,18 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     // Only redirect after loading is complete
-    if (!loading) {
-      if (user) {
-        // If user has credits, go to main app
-        if (credits > 0) {
-          router.push('/');
-        } else {
-          // If user has no credits, go to pricing
-          router.push('/pricing');
-        }
+    if (!loading && user) {
+      console.log('Redirecting user:', { credits, loading });
+      if (credits > 0) {
+        router.replace('/');
+      } else {
+        router.replace('/pricing');
       }
     }
   }, [user, credits, loading, router]);
 
   // Show loading state while authentication is in progress
-  if (loading) {
+  if (loading || user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
         <div className="text-center mb-8">

@@ -30,9 +30,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [isHandlingRedirect, setIsHandlingRedirect] = useState(true);
 
-  // Listen for auth state changes
+  // Handle redirect result first
   useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log('Google redirect sign in successful:', result.user.email);
+          setUser(result.user);
+          
+          // Create user document if it doesn't exist
+          const userRef = doc(db, 'users', result.user.uid);
+          const userDoc = await getDoc(userRef);
+          if (!userDoc.exists()) {
+            console.log('Creating new user document after redirect sign in');
+            await setDoc(userRef, {
+              email: result.user.email,
+              credits: 10,
+              createdAt: new Date(),
+              lastFreeCreditsReset: new Date()
+            });
+            setCredits(10);
+            setIsNewUser(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error handling redirect result:', error);
+      } finally {
+        setIsHandlingRedirect(false);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
+
+  // Listen for auth state changes after handling redirect
+  useEffect(() => {
+    if (isHandlingRedirect) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user?.email);
       setUser(user);
@@ -43,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!userDoc.exists()) {
           console.log('Creating new user document');
           setIsNewUser(true);
-          // Set initial credits for new users
           const initialUserData = {
             email: user.email,
             credits: 10,
@@ -51,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             lastFreeCreditsReset: new Date()
           };
           await setDoc(userRef, initialUserData);
-          setCredits(10); // Set credits immediately
+          setCredits(10);
         } else {
           setIsNewUser(false);
           const data = userDoc.data();
@@ -60,15 +96,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (monthsSinceReset >= 1 && data.credits < 100) {
             console.log('Resetting free credits');
-            const updatedData = {
+            await setDoc(userRef, {
               ...data,
               credits: 10,
               lastFreeCreditsReset: new Date()
-            };
-            await setDoc(userRef, updatedData, { merge: true });
-            setCredits(10); // Set credits immediately
+            }, { merge: true });
+            setCredits(10);
           } else {
-            // Set existing credits immediately
             setCredits(data.credits || 0);
           }
         }
@@ -81,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isHandlingRedirect]);
 
   // Separate effect for credits listener
   useEffect(() => {
@@ -142,36 +176,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
-
-  // Handle redirect result
-  useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          console.log('Google redirect sign in successful:', result.user.email);
-          
-          // Create user document if it doesn't exist
-          const userRef = doc(db, 'users', result.user.uid);
-          const userDoc = await getDoc(userRef);
-          if (!userDoc.exists()) {
-            console.log('Creating new user document after redirect sign in');
-            await setDoc(userRef, {
-              email: result.user.email,
-              credits: 10,
-              createdAt: new Date(),
-              lastFreeCreditsReset: new Date()
-            });
-            setCredits(10); // Set credits immediately
-          }
-        }
-      } catch (error) {
-        console.error('Error handling redirect result:', error);
-      }
-    };
-
-    handleRedirectResult();
-  }, []);
 
   const signOutUser = async () => {
     try {
