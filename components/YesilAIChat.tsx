@@ -90,7 +90,13 @@ export function YesilAIChat() {
         body: JSON.stringify({ question }),
       });
 
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+        console.error('API response error:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        throw new Error('Network response was not ok');
+      }
       
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No reader available');
@@ -101,10 +107,29 @@ export function YesilAIChat() {
       let consultationText = '';
       let isCollectingFinalResponse = false;
       let finalResponseText = '';
+      let lastProcessedLine = '';
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('Stream completed. Last processed line:', lastProcessedLine);
+          // If we're stuck in analyzing state, force complete the response
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage.role === 'assistant' && lastMessage.processingStage === 'Analyzing consultations...') {
+              console.log('Forcing completion of stuck analysis');
+              return [...prev.slice(0, -1), {
+                ...lastMessage,
+                stage: 'Consultation completed',
+                processingStage: undefined,
+                content: lastMessage.content || 'Consultation completed. Please try asking another question if you need more information.'
+              }];
+            }
+            return prev;
+          });
+          break;
+        }
         
         buffer += new TextDecoder().decode(value);
         
@@ -116,7 +141,15 @@ export function YesilAIChat() {
           const trimmedLine = line.trim();
           if (!trimmedLine) continue;
 
-          console.log('Processing line:', trimmedLine); // Debug log
+          console.log('Processing line:', {
+            line: trimmedLine,
+            currentState: {
+              isCollectingConsultation,
+              isCollectingFinalResponse,
+              currentSpecialty
+            }
+          });
+          lastProcessedLine = trimmedLine;
 
           if (trimmedLine.includes('Processing the question')) {
             setMessages(prev => {
@@ -182,7 +215,6 @@ export function YesilAIChat() {
             currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
             isCollectingConsultation = false;
             
-            // Update the message to show current specialty being processed
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -194,8 +226,7 @@ export function YesilAIChat() {
                 );
                 return [...prev.slice(0, -1), { 
                   ...lastMessage, 
-                  specialtyStatuses: updatedStatuses,
-                  processingStage: `Consulting ${currentSpecialty} specialist...`
+                  specialtyStatuses: updatedStatuses
                 }];
               }
               return prev;
@@ -207,19 +238,20 @@ export function YesilAIChat() {
             consultationText = '';
           }
           else if (trimmedLine === 'Compiling final response...') {
+            console.log('Starting final response compilation');
             // Save last consultation if exists
             if (currentSpecialty && consultationText) {
               updateConsultation(currentSpecialty, consultationText);
               consultationText = '';
             }
             isCollectingConsultation = false;
-            isCollectingFinalResponse = true;
+            isCollectingFinalResponse = false;
             
-            // Update message to show analyzing state
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
               if (lastMessage.role === 'assistant') {
+                console.log('Updating message state for final analysis');
                 return [...prev.slice(0, -1), { 
                   ...lastMessage, 
                   processingStage: 'Analyzing consultations...',
@@ -230,14 +262,15 @@ export function YesilAIChat() {
             });
           }
           else if (trimmedLine.includes('Final Response:')) {
+            console.log('Received final response');
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
             
-            // Clear processing stage and update content
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
               if (lastMessage.role === 'assistant') {
+                console.log('Updating message with final response');
                 return [...prev.slice(0, -1), { 
                   ...lastMessage, 
                   content: finalResponseText.trim(),
@@ -250,8 +283,7 @@ export function YesilAIChat() {
           }
           else if (isCollectingFinalResponse) {
             finalResponseText += '\n' + trimmedLine;
-            
-            // Update content immediately
+            // Update the message content immediately
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -267,6 +299,7 @@ export function YesilAIChat() {
             });
           }
           else if (isCollectingConsultation && !trimmedLine.includes('Compiling final response')) {
+            // Add line to consultation text
             consultationText += (consultationText ? '\n' : '') + trimmedLine;
           }
         }
@@ -278,7 +311,11 @@ export function YesilAIChat() {
       }
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error processing question:', {
+        error,
+        question,
+        isRetry
+      });
       setLastErrorQuestion(question);
       setMessages((prev) => [
         ...prev.slice(0, -1),
@@ -507,7 +544,7 @@ export function YesilAIChat() {
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             <span className="text-sm font-medium">
-                              {message.processingStage || 'Processing...'}
+                              {message.processingStage}
                             </span>
                           </div>
                           <div className="space-y-2.5">
