@@ -23,7 +23,11 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <Header />
-          {children}
+          <main className="flex flex-col h-[100vh]">
+            <div className="flex-1 w-full max-w-[1200px] mx-auto">
+              {children}
+            </div>
+          </main>
           <LemonSqueezyScript />
         </AuthProvider>
       </body>
