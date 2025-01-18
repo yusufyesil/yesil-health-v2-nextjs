@@ -7,7 +7,9 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
-  User 
+  User,
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -115,20 +117,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-      const result = await signInWithPopup(auth, provider);
-      console.log('Google sign in successful:', result.user.email);
+
+      // Check if we're on mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
-      // Create user document if it doesn't exist
-      const userRef = doc(db, 'users', result.user.uid);
-      const userDoc = await getDoc(userRef);
-      if (!userDoc.exists()) {
-        console.log('Creating new user document after Google sign in');
-        await setDoc(userRef, {
-          email: result.user.email,
-          credits: 0,
-          createdAt: new Date()
-        });
+      if (isMobile) {
+        // Use redirect method for mobile
+        await signInWithRedirect(auth, provider);
+      } else {
+        // Use popup for desktop
+        const result = await signInWithPopup(auth, provider);
+        console.log('Google sign in successful:', result.user.email);
       }
+      
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
       if (error.code === 'auth/popup-closed-by-user') {
@@ -141,6 +142,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
+
+  // Handle redirect result
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log('Google redirect sign in successful:', result.user.email);
+          
+          // Create user document if it doesn't exist
+          const userRef = doc(db, 'users', result.user.uid);
+          const userDoc = await getDoc(userRef);
+          if (!userDoc.exists()) {
+            console.log('Creating new user document after redirect sign in');
+            await setDoc(userRef, {
+              email: result.user.email,
+              credits: 10,
+              createdAt: new Date(),
+              lastFreeCreditsReset: new Date()
+            });
+            setCredits(10); // Set credits immediately
+          }
+        }
+      } catch (error) {
+        console.error('Error handling redirect result:', error);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
 
   const signOutUser = async () => {
     try {
