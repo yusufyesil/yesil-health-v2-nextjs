@@ -10,8 +10,6 @@ export const metadata: Metadata = {
   viewport: {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
   },
 }
 
@@ -21,9 +19,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="touch-manipulation">
       <head>
         <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </head>
       <body>
         <AuthProvider>

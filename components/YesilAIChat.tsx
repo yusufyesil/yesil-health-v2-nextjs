@@ -182,6 +182,7 @@ export function YesilAIChat() {
             currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
             isCollectingConsultation = false;
             
+            // Update the message to show current specialty being processed
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -193,7 +194,8 @@ export function YesilAIChat() {
                 );
                 return [...prev.slice(0, -1), { 
                   ...lastMessage, 
-                  specialtyStatuses: updatedStatuses
+                  specialtyStatuses: updatedStatuses,
+                  processingStage: `Consulting ${currentSpecialty} specialist...`
                 }];
               }
               return prev;
@@ -211,9 +213,9 @@ export function YesilAIChat() {
               consultationText = '';
             }
             isCollectingConsultation = false;
-            isCollectingFinalResponse = false;
+            isCollectingFinalResponse = true;
             
-            // Update message to show thinking state
+            // Update message to show analyzing state
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -228,16 +230,10 @@ export function YesilAIChat() {
             });
           }
           else if (trimmedLine.includes('Final Response:')) {
-            // Save last consultation if exists
-            if (currentSpecialty && consultationText) {
-              updateConsultation(currentSpecialty, consultationText);
-              consultationText = '';
-            }
-            
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
             
-            // Immediately update the message with the final response
+            // Clear processing stage and update content
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -254,7 +250,8 @@ export function YesilAIChat() {
           }
           else if (isCollectingFinalResponse) {
             finalResponseText += '\n' + trimmedLine;
-            // Update the message content immediately
+            
+            // Update content immediately
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -270,7 +267,6 @@ export function YesilAIChat() {
             });
           }
           else if (isCollectingConsultation && !trimmedLine.includes('Compiling final response')) {
-            // Add line to consultation text
             consultationText += (consultationText ? '\n' : '') + trimmedLine;
           }
         }
@@ -511,7 +507,7 @@ export function YesilAIChat() {
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             <span className="text-sm font-medium">
-                              {message.processingStage}
+                              {message.processingStage || 'Processing...'}
                             </span>
                           </div>
                           <div className="space-y-2.5">
