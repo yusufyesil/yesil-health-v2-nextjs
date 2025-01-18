@@ -231,7 +231,7 @@ export function YesilAIChat() {
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
             
-            // Immediately update the message with the final response and clear processing stage
+            // Immediately update the message with the final response
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -373,30 +373,30 @@ export function YesilAIChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] w-full bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-between py-4 sm:py-6 px-4 sm:px-6 border-b bg-gradient-to-r from-teal-50 to-white">
+    <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
+      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
         <div className="flex items-center gap-3">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
             alt="Yesil AI Logo"
-            className="h-8 w-8 sm:h-10 sm:w-10 object-contain"
+            className="h-10 w-10 object-contain"
           />
           <div className="flex flex-col">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Yesil AI</h1>
-            <p className="text-xs sm:text-sm text-gray-500">Virtual Hospital</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Yesil AI</h1>
+            <p className="text-sm text-gray-500">Virtual Hospital</p>
           </div>
         </div>
         <CreditBalance credits={credits} />
       </div>
 
-      <ScrollArea className="flex-1 px-2 sm:px-4" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
         <div className="space-y-6 py-4">
           {messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-center text-gray-500 mt-8 px-4"
+              className="text-center text-gray-500 mt-8"
             >
               <Bot className="h-8 w-8 mx-auto mb-3 text-gray-400" />
               <p className="text-sm">Welcome to our Virtual Hospital. How can we assist you today?</p>
@@ -411,7 +411,7 @@ export function YesilAIChat() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={cn(
-                  "flex flex-col max-w-[95%] sm:max-w-[85%] rounded-lg p-3 sm:p-4",
+                  "flex flex-col max-w-[85%] rounded-lg p-4",
                   message.role === "user"
                     ? "ml-auto bg-[#40E0D0]/10"
                     : "bg-white border border-gray-100 shadow-sm"
@@ -548,13 +548,13 @@ export function YesilAIChat() {
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="border-t p-2 sm:p-4 bg-white">
+      <form onSubmit={handleSubmit} className="border-t p-4">
         <div className="flex gap-2 items-start">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe your health concerns..."
-            className="flex-1 min-h-[48px] max-h-[200px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
+            className="flex-1 min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -580,7 +580,7 @@ export function YesilAIChat() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm p-4"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm"
             onClick={() => setActiveConsultation(null)}
           >
             <motion.div
@@ -588,7 +588,7 @@ export function YesilAIChat() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
               transition={{ duration: 0.1 }}
-              className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full sm:w-[90%] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto"
+              className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-2xl mx-4 max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">

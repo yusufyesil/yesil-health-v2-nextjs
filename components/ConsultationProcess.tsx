@@ -19,7 +19,8 @@ export function ConsultationProcess({
   specialtyStatuses,
   onConsultationClick,
   stage,
-  showStatus = true,
+  processingStage,
+  showStatus = true
 }: ConsultationProcessProps) {
   const [longLoadingSpecialties, setLongLoadingSpecialties] = useState<Set<string>>(new Set());
 
@@ -48,6 +49,12 @@ export function ConsultationProcess({
 
   return (
     <div className="space-y-2 mb-3">
+      {showStatus && (
+        <div className="text-sm text-gray-500 mb-2">
+          {processingStage || stage}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {specialtyStatuses.map(({ specialty, status }) => (
           <motion.button
@@ -74,7 +81,7 @@ export function ConsultationProcess({
           >
             <div className="flex items-center gap-1.5">
               {getSpecialtyIcon(specialty)}
-              <span className="whitespace-nowrap">{specialty}</span>
+              <span>{specialty}</span>
               {status === 'consulting' && (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
