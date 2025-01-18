@@ -231,7 +231,7 @@ export function YesilAIChat() {
             isCollectingFinalResponse = true;
             finalResponseText = trimmedLine.split('Final Response:')[1].trim();
             
-            // Immediately update the message with the final response
+            // Immediately update the message with the final response and clear processing stage
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessage = newMessages[newMessages.length - 1];
@@ -548,13 +548,13 @@ export function YesilAIChat() {
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="border-t p-2 sm:p-4">
+      <form onSubmit={handleSubmit} className="border-t p-2 sm:p-4 bg-white">
         <div className="flex gap-2 items-start">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe your health concerns..."
-            className="flex-1 min-h-[48px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
+            className="flex-1 min-h-[48px] max-h-[200px] resize-none rounded-md border-gray-200 focus:border-[#40E0D0] focus:ring-1 focus:ring-[#40E0D0]/20 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
