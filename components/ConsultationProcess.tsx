@@ -19,84 +19,51 @@ export function ConsultationProcess({
   specialtyStatuses,
   onConsultationClick,
   stage,
-  processingStage,
-  showStatus = true
+  showStatus = true,
 }: ConsultationProcessProps) {
-  const [longLoadingSpecialties, setLongLoadingSpecialties] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const timers = new Map<string, NodeJS.Timeout>();
-
-    specialtyStatuses.forEach(({ specialty, status }) => {
-      if (status === 'consulting') {
-        const timer = setTimeout(() => {
-          setLongLoadingSpecialties(prev => new Set([...prev, specialty]));
-        }, 3000);
-        timers.set(specialty, timer);
-      } else {
-        setLongLoadingSpecialties(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(specialty);
-          return newSet;
-        });
-      }
-    });
-
-    return () => {
-      timers.forEach(timer => clearTimeout(timer));
-    };
-  }, [specialtyStatuses]);
-
   return (
-    <div className="space-y-2 mb-3">
-      {showStatus && (
-        <div className="text-sm text-gray-500 mb-2">
-          {processingStage || stage}
-        </div>
-      )}
-
+    <div className="space-y-2 mb-4">
       <div className="flex flex-wrap gap-2">
-        {specialtyStatuses.map(({ specialty, status }) => (
-          <motion.button
-            key={specialty}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+        {specialtyStatuses.map((specialty, index) => (
+          <button
+            key={index}
             onClick={() => {
-              const consultation = consultations.find(c => c.specialty === specialty);
+              const consultation = consultations.find(c => c.specialty === specialty.specialty);
               if (consultation) {
                 onConsultationClick(consultation);
               }
             }}
-            disabled={status === 'pending'}
+            disabled={!consultations.find(c => c.specialty === specialty.specialty)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-              {
-                'bg-gray-100 text-gray-500': status === 'pending',
-                'bg-orange-100 text-orange-700 animate-pulse': status === 'consulting',
-                'bg-gray-900 text-white hover:bg-gray-800': status === 'completed',
-                'cursor-pointer': status === 'completed',
-                'cursor-not-allowed': status === 'pending'
-              }
+              "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs sm:text-sm transition-colors",
+              consultations.find(c => c.specialty === specialty.specialty)
+                ? "hover:bg-gray-100 cursor-pointer"
+                : "opacity-50 cursor-default",
+              specialty.status === 'consulting' && "animate-pulse"
             )}
           >
             <div className="flex items-center gap-1.5">
-              {getSpecialtyIcon(specialty)}
-              <span>{specialty}</span>
-              {status === 'consulting' && (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {longLoadingSpecialties.has(specialty) && (
-                    <span className="text-[10px] text-orange-600/70 font-normal">
-                      searching medical database...
-                    </span>
-                  )}
-                </>
-              )}
-              {status === 'completed' && (
-                <span className="w-3 h-3 rounded-full bg-green-500 ml-1" />
-              )}
+              {getSpecialtyIcon(specialty.specialty)}
+              <span className="whitespace-nowrap">{specialty.specialty}</span>
             </div>
-          </motion.button>
+            {showStatus && (
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    specialty.status === 'pending' && "bg-gray-300",
+                    specialty.status === 'consulting' && "bg-yellow-400",
+                    specialty.status === 'completed' && "bg-green-400"
+                  )}
+                />
+                <span className="text-xs text-gray-500 hidden sm:inline">
+                  {specialty.status === 'pending' && 'Pending'}
+                  {specialty.status === 'consulting' && 'Consulting'}
+                  {specialty.status === 'completed' && 'Completed'}
+                </span>
+              </div>
+            )}
+          </button>
         ))}
       </div>
     </div>

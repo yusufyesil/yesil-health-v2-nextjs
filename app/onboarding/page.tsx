@@ -6,52 +6,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
 export default function OnboardingPage() {
-  const { user, credits, signInWithGoogle, loading } = useAuth();
+  const { user, credits, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect after loading is complete and we have a user
-    if (!loading && user) {
-      console.log('OnboardingPage: Redirecting user:', { 
-        email: user.email,
-        credits,
-        loading 
-      });
-      
-      // Use a small timeout to ensure state is settled
-      setTimeout(() => {
-        if (credits > 0) {
-          router.replace('/');
-        } else {
-          router.replace('/pricing');
-        }
-      }, 100);
+    if (user) {
+      // If user has credits, go to main app
+      if (credits > 0) {
+        router.push('/');
+      } else {
+        // If user has no credits, go to pricing
+        router.push('/pricing');
+      }
     }
-  }, [user, credits, loading, router]);
-
-  // Show loading state while authentication is in progress
-  if (loading || user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
-        <div className="text-center mb-8">
-          <div className="animate-pulse">
-            <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
-              alt="Yesil AI Logo"
-              className="h-20 w-20 mx-auto mb-6"
-            />
-            <div className="h-8 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
-            <div className="h-4 w-64 bg-gray-100 rounded mx-auto"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const handleSignIn = () => {
-    console.log('OnboardingPage: Starting sign in process');
-    signInWithGoogle();
-  };
+  }, [user, credits, router]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
@@ -66,7 +34,7 @@ export default function OnboardingPage() {
         
         <div className="space-y-4">
           <Button
-            onClick={handleSignIn}
+            onClick={signInWithGoogle}
             className="w-full max-w-sm bg-white hover:bg-gray-50 text-gray-900 border shadow-sm"
           >
             <img 
