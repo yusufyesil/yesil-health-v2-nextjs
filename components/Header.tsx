@@ -8,56 +8,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Mail, Bug, CreditCard } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { LogOut, Mail, Bug } from "lucide-react";
 
 export function Header() {
   const { user, signOutUser } = useAuth();
-  const isMobile = useIsMobile();
 
   if (!user) return null;
-
-  const handleBuyCredits = () => {
-    const baseUrl = "https://yesilhealth.lemonsqueezy.com/buy/17283596-b745-4deb-bf66-f4492bfddb11";
-    const params = new URLSearchParams({
-      'embed': '1',
-      'media': '0',
-      'discount': '0',
-      'checkout[email]': user?.email || ''
-    });
-    const checkoutUrl = `${baseUrl}?${params.toString()}`;
-    
-    const link = document.createElement('a');
-    link.href = checkoutUrl;
-    link.className = 'lemonsqueezy-button';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const DesktopMenu = () => (
-    <div className="hidden md:flex items-center gap-6">
-      <a
-        href="mailto:hello@yesilhealth.com?subject=Contact"
-        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <Mail className="h-4 w-4" />
-        <span>Contact Us</span>
-      </a>
-      <a
-        href="mailto:hello@yesilhealth.com?subject=Bug Report"
-        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <Bug className="h-4 w-4" />
-        <span>Report Bug</span>
-      </a>
-    </div>
-  );
 
   return (
     <header className="fixed top-0 right-0 z-50 flex items-center justify-end px-4 py-3">
       <div className="flex items-center gap-6">
-        <DesktopMenu />
+        <a
+          href="mailto:hello@yesilhealth.com?subject=Contact"
+          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <Mail className="h-4 w-4" />
+          <span>Contact Us</span>
+        </a>
+        <a
+          href="mailto:hello@yesilhealth.com?subject=Bug Report"
+          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <Bug className="h-4 w-4" />
+          <span>Report Bug</span>
+        </a>
         <DropdownMenu>
           <DropdownMenuTrigger className="focus:outline-none">
             <div className="h-8 w-8 rounded-full bg-[#40E0D0] flex items-center justify-center">
@@ -71,33 +45,6 @@ export function Header() {
               {user.email}
             </div>
             <DropdownMenuSeparator />
-            {isMobile && (
-              <>
-                <DropdownMenuItem asChild>
-                  <a
-                    href="mailto:hello@yesilhealth.com?subject=Contact"
-                    className="flex items-center cursor-pointer"
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    <span>Contact Us</span>
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a
-                    href="mailto:hello@yesilhealth.com?subject=Bug Report"
-                    className="flex items-center cursor-pointer"
-                  >
-                    <Bug className="mr-2 h-4 w-4" />
-                    <span>Report Bug</span>
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleBuyCredits} className="cursor-pointer">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  <span>Buy Credits</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
             <DropdownMenuItem onClick={signOutUser} className="cursor-pointer text-red-600">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sign out</span>

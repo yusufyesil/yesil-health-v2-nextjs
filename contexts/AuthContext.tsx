@@ -7,9 +7,7 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
-  User,
-  signInWithRedirect,
-  getRedirectResult
+  User 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -30,34 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
-
-  // Handle redirect result on initial load
-  useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          console.log('Redirect sign-in successful:', result.user.email);
-          // Create user document if it doesn't exist
-          const userRef = doc(db, 'users', result.user.uid);
-          const userDoc = await getDoc(userRef);
-          if (!userDoc.exists()) {
-            console.log('Creating new user document after redirect sign-in');
-            await setDoc(userRef, {
-              email: result.user.email,
-              credits: 10,
-              createdAt: new Date(),
-              lastFreeCreditsReset: new Date()
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error handling redirect result:', error);
-      }
-    };
-
-    handleRedirectResult();
-  }, []);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -145,32 +115,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-
-      // Check if running in a mobile browser
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const result = await signInWithPopup(auth, provider);
+      console.log('Google sign in successful:', result.user.email);
       
-      if (isMobile) {
-        // Use redirect method for mobile
-        await signInWithRedirect(auth, provider);
-        // Don't try to get redirect result here, it will be handled by the useEffect
-      } else {
-        // Use popup for desktop
-        const result = await signInWithPopup(auth, provider);
-        if (result) {
-          console.log('Popup sign-in successful:', result.user.email);
-          // Create user document if it doesn't exist
-          const userRef = doc(db, 'users', result.user.uid);
-          const userDoc = await getDoc(userRef);
-          if (!userDoc.exists()) {
-            console.log('Creating new user document after popup sign-in');
-            await setDoc(userRef, {
-              email: result.user.email,
-              credits: 10,
-              createdAt: new Date(),
-              lastFreeCreditsReset: new Date()
-            });
-          }
-        }
+      // Create user document if it doesn't exist
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        console.log('Creating new user document after Google sign in');
+        await setDoc(userRef, {
+          email: result.user.email,
+          credits: 0,
+          createdAt: new Date()
+        });
       }
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
