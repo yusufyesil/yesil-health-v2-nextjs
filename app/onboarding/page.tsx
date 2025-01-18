@@ -10,14 +10,22 @@ export default function OnboardingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect after loading is complete
+    // Only redirect after loading is complete and we have a user
     if (!loading && user) {
-      console.log('Redirecting user:', { credits, loading });
-      if (credits > 0) {
-        router.replace('/');
-      } else {
-        router.replace('/pricing');
-      }
+      console.log('OnboardingPage: Redirecting user:', { 
+        email: user.email,
+        credits,
+        loading 
+      });
+      
+      // Use a small timeout to ensure state is settled
+      setTimeout(() => {
+        if (credits > 0) {
+          router.replace('/');
+        } else {
+          router.replace('/pricing');
+        }
+      }, 100);
     }
   }, [user, credits, loading, router]);
 
@@ -40,6 +48,11 @@ export default function OnboardingPage() {
     );
   }
 
+  const handleSignIn = () => {
+    console.log('OnboardingPage: Starting sign in process');
+    signInWithGoogle();
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
       <div className="text-center mb-8">
@@ -53,7 +66,7 @@ export default function OnboardingPage() {
         
         <div className="space-y-4">
           <Button
-            onClick={signInWithGoogle}
+            onClick={handleSignIn}
             className="w-full max-w-sm bg-white hover:bg-gray-50 text-gray-900 border shadow-sm"
           >
             <img 

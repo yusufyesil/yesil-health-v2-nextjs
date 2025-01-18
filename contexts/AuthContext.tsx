@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
+        console.log('Checking for redirect result...');
         const result = await getRedirectResult(auth);
         if (result) {
           console.log('Google redirect sign in successful:', result.user.email);
@@ -46,20 +47,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userRef);
           if (!userDoc.exists()) {
             console.log('Creating new user document after redirect sign in');
-            await setDoc(userRef, {
+            const userData = {
               email: result.user.email,
               credits: 10,
               createdAt: new Date(),
               lastFreeCreditsReset: new Date()
-            });
+            };
+            await setDoc(userRef, userData);
             setCredits(10);
             setIsNewUser(true);
+          } else {
+            // If user exists, set their credits
+            const data = userDoc.data();
+            setCredits(data.credits || 0);
+            setIsNewUser(false);
           }
         }
       } catch (error) {
         console.error('Error handling redirect result:', error);
       } finally {
+        console.log('Finished handling redirect, setting loading to false');
         setIsHandlingRedirect(false);
+        setLoading(false);
       }
     };
 
@@ -68,20 +77,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for auth state changes after handling redirect
   useEffect(() => {
-    if (isHandlingRedirect) return;
+    if (isHandlingRedirect) {
+      console.log('Still handling redirect, skipping auth state change listener');
+      return;
+    }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user?.email);
-      setUser(user);
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
+    console.log('Setting up auth state change listener');
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log('Auth state changed:', currentUser?.email);
+      
+      if (currentUser && (!user || user.uid !== currentUser.uid)) {
+        setUser(currentUser);
+        const userRef = doc(db, 'users', currentUser.uid);
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
           console.log('Creating new user document');
           setIsNewUser(true);
           const initialUserData = {
-            email: user.email,
+            email: currentUser.email,
             credits: 10,
             createdAt: new Date(),
             lastFreeCreditsReset: new Date()
@@ -106,8 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setCredits(data.credits || 0);
           }
         }
-      } else {
-        console.log('User signed out, resetting credits');
+      } else if (!currentUser) {
+        console.log('User signed out, resetting states');
+        setUser(null);
         setCredits(0);
         setIsNewUser(false);
       }
@@ -115,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [isHandlingRedirect]);
+  }, [isHandlingRedirect, user]);
 
   // Separate effect for credits listener
   useEffect(() => {
@@ -147,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      setLoading(true);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -156,16 +172,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
       if (isMobile) {
-        // Use redirect method for mobile
+        console.log('Using redirect method for mobile sign in');
         await signInWithRedirect(auth, provider);
       } else {
-        // Use popup for desktop
+        console.log('Using popup for desktop sign in');
         const result = await signInWithPopup(auth, provider);
         console.log('Google sign in successful:', result.user.email);
       }
       
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
+      setLoading(false);
       if (error.code === 'auth/popup-closed-by-user') {
         console.log('Popup closed by user');
         return;
