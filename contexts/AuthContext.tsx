@@ -41,12 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!userDoc.exists()) {
           console.log('Creating new user document');
           setIsNewUser(true);
-          await setDoc(userRef, {
+          // Set initial credits for new users
+          const initialUserData = {
             email: user.email,
-            credits: 0,
+            credits: 10,
             createdAt: new Date(),
             lastFreeCreditsReset: new Date()
-          });
+          };
+          await setDoc(userRef, initialUserData);
+          setCredits(10); // Set credits immediately
         } else {
           setIsNewUser(false);
           const data = userDoc.data();
@@ -55,18 +58,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (monthsSinceReset >= 1 && data.credits < 100) {
             console.log('Resetting free credits');
-            await setDoc(userRef, {
+            const updatedData = {
               ...data,
               credits: 10,
               lastFreeCreditsReset: new Date()
-            }, { merge: true });
+            };
+            await setDoc(userRef, updatedData, { merge: true });
+            setCredits(10); // Set credits immediately
+          } else {
+            // Set existing credits immediately
+            setCredits(data.credits || 0);
           }
         }
-        // Always get the latest data after potential creation or reset
-        const latestDoc = await getDoc(userRef);
-        const currentCredits = latestDoc.data()?.credits;
-        console.log('Initial credits from Firestore:', currentCredits);
-        setCredits(typeof currentCredits === 'number' ? currentCredits : 0);
       } else {
         console.log('User signed out, resetting credits');
         setCredits(0);
