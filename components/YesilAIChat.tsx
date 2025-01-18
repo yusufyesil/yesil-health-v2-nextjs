@@ -82,21 +82,24 @@ export function YesilAIChat() {
     setSpecialtyStatuses([]); 
 
     try {
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       const response = await fetch('/api/consultation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
         body: JSON.stringify({ question }),
+        signal: controller.signal
       });
 
-      if (!response.ok) {
-        console.error('API response error:', {
-          status: response.status,
-          statusText: response.statusText
-        });
-        throw new Error('Network response was not ok');
-      }
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error('Network response was not ok');
       
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No reader available');
@@ -107,31 +110,26 @@ export function YesilAIChat() {
       let consultationText = '';
       let isCollectingFinalResponse = false;
       let finalResponseText = '';
-      let lastProcessedLine = '';
+      let lastUpdateTime = Date.now();
 
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          console.log('Stream completed. Last processed line:', lastProcessedLine);
-          // If we're stuck in analyzing state, force complete the response
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if (lastMessage.role === 'assistant' && lastMessage.processingStage === 'Analyzing consultations...') {
-              console.log('Forcing completion of stuck analysis');
-              return [...prev.slice(0, -1), {
-                ...lastMessage,
-                stage: 'Consultation completed',
-                processingStage: undefined,
-                content: lastMessage.content || 'Consultation completed. Please try asking another question if you need more information.'
-              }];
-            }
-            return prev;
-          });
+        // Add timeout for each chunk
+        const result = await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Chunk timeout')), 10000)
+          )
+        ]) as ReadableStreamReadResult<Uint8Array>;
+
+        if (result.done) {
+          console.log('Stream completed');
           break;
         }
+
+        // Update last activity timestamp
+        lastUpdateTime = Date.now();
         
-        buffer += new TextDecoder().decode(value);
+        buffer += new TextDecoder().decode(result.value);
         
         // Process complete lines
         const lines = buffer.split('\n');
@@ -141,197 +139,248 @@ export function YesilAIChat() {
           const trimmedLine = line.trim();
           if (!trimmedLine) continue;
 
-          console.log('Processing line:', {
-            line: trimmedLine,
-            currentState: {
-              isCollectingConsultation,
-              isCollectingFinalResponse,
-              currentSpecialty
-            }
-          });
-          lastProcessedLine = trimmedLine;
+          console.log('Processing line:', trimmedLine); // Debug log
 
-          if (trimmedLine.includes('Processing the question')) {
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  processingStage: 'Analyzing your question...',
-                  stage: 'Initial Analysis'
-                }];
-              }
-              return prev;
-            });
-          }
-          else if (trimmedLine.includes('Specialties determined:')) {
-            const specialtiesText = trimmedLine.split('Specialties determined:')[1].trim();
-            
-            // Handle non-health case
-            if (specialtiesText === 'Nohealth') {
+          try {
+            if (trimmedLine.includes('Processing the question')) {
               setMessages(prev => {
                 const newMessages = [...prev];
                 const lastMessage = newMessages[newMessages.length - 1];
                 if (lastMessage.role === 'assistant') {
                   return [...prev.slice(0, -1), { 
                     ...lastMessage, 
-                    specialtyStatuses: [],
-                    processingStage: 'Non-health question detected',
-                    stage: 'Not Health Related'
+                    processingStage: 'Analyzing your question...',
+                    stage: 'Initial Analysis'
                   }];
                 }
                 return prev;
               });
-              continue;
             }
-            
-            // Regular health-related case
-            const specialties = specialtiesText.split(',').map(s => s.trim());
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  specialtyStatuses: specialties.map(specialty => ({
-                    specialty,
-                    status: 'pending'
-                  })),
-                  processingStage: `Consulting ${specialties.length} specialists...`,
-                  stage: 'Specialist Consultation'
-                }];
+            else if (trimmedLine.includes('Specialties determined:')) {
+              const specialtiesText = trimmedLine.split('Specialties determined:')[1].trim();
+              
+              // Handle non-health case
+              if (specialtiesText === 'Nohealth') {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMessage = newMessages[newMessages.length - 1];
+                  if (lastMessage.role === 'assistant') {
+                    return [...prev.slice(0, -1), { 
+                      ...lastMessage, 
+                      specialtyStatuses: [],
+                      processingStage: 'Non-health question detected',
+                      stage: 'Not Health Related'
+                    }];
+                  }
+                  return prev;
+                });
+                continue;
               }
-              return prev;
-            });
-          }
-          else if (trimmedLine.includes('Processing consultation for')) {
-            // Save previous consultation if exists
-            if (currentSpecialty && consultationText) {
-              updateConsultation(currentSpecialty, consultationText);
+              
+              // Regular health-related case
+              const specialties = specialtiesText.split(',').map(s => s.trim());
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.role === 'assistant') {
+                  return [...prev.slice(0, -1), { 
+                    ...lastMessage, 
+                    specialtyStatuses: specialties.map(specialty => ({
+                      specialty,
+                      status: 'pending'
+                    })),
+                    processingStage: `Consulting ${specialties.length} specialists...`,
+                    stage: 'Specialist Consultation'
+                  }];
+                }
+                return prev;
+              });
+            }
+            else if (trimmedLine.includes('Processing consultation for')) {
+              // Save previous consultation if exists
+              if (currentSpecialty && consultationText) {
+                updateConsultation(currentSpecialty, consultationText);
+                consultationText = '';
+              }
+              
+              currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
+              isCollectingConsultation = false;
+              
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.role === 'assistant') {
+                  const updatedStatuses = (lastMessage.specialtyStatuses || []).map(s => 
+                    s.specialty === currentSpecialty 
+                      ? { ...s, status: 'consulting' as const } 
+                      : s
+                  );
+                  return [...prev.slice(0, -1), { 
+                    ...lastMessage, 
+                    specialtyStatuses: updatedStatuses
+                  }];
+                }
+                return prev;
+              });
+            }
+            else if (trimmedLine.includes('consultation:')) {
+              isCollectingConsultation = true;
+              isCollectingFinalResponse = false;
               consultationText = '';
             }
-            
-            currentSpecialty = trimmedLine.split('Processing consultation for')[1].split('...')[0].trim();
-            isCollectingConsultation = false;
-            
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                const updatedStatuses = (lastMessage.specialtyStatuses || []).map(s => 
-                  s.specialty === currentSpecialty 
-                    ? { ...s, status: 'consulting' as const } 
-                    : s
-                );
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  specialtyStatuses: updatedStatuses
-                }];
+            else if (trimmedLine === 'Compiling final response...') {
+              // Save last consultation if exists
+              if (currentSpecialty && consultationText) {
+                updateConsultation(currentSpecialty, consultationText);
+                consultationText = '';
               }
-              return prev;
-            });
-          }
-          else if (trimmedLine.includes('consultation:')) {
-            isCollectingConsultation = true;
-            isCollectingFinalResponse = false;
-            consultationText = '';
-          }
-          else if (trimmedLine === 'Compiling final response...') {
-            console.log('Starting final response compilation');
-            // Save last consultation if exists
-            if (currentSpecialty && consultationText) {
-              updateConsultation(currentSpecialty, consultationText);
-              consultationText = '';
+              isCollectingConsultation = false;
+              isCollectingFinalResponse = false;
+              
+              // Update message to show thinking state
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.role === 'assistant') {
+                  return [...prev.slice(0, -1), { 
+                    ...lastMessage, 
+                    processingStage: 'Analyzing consultations...',
+                    stage: 'Final Analysis'
+                  }];
+                }
+                return prev;
+              });
             }
-            isCollectingConsultation = false;
-            isCollectingFinalResponse = false;
-            
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                console.log('Updating message state for final analysis');
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  processingStage: 'Analyzing consultations...',
-                  stage: 'Final Analysis'
-                }];
+            else if (trimmedLine.includes('Final Response:')) {
+              // Save last consultation if exists
+              if (currentSpecialty && consultationText) {
+                updateConsultation(currentSpecialty, consultationText);
+                consultationText = '';
               }
-              return prev;
-            });
-          }
-          else if (trimmedLine.includes('Final Response:')) {
-            console.log('Received final response');
-            isCollectingFinalResponse = true;
-            finalResponseText = trimmedLine.split('Final Response:')[1].trim();
-            
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                console.log('Updating message with final response');
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  content: finalResponseText.trim(),
-                  stage: 'Consultation completed',
-                  processingStage: undefined
-                }];
-              }
-              return prev;
-            });
-          }
-          else if (isCollectingFinalResponse) {
-            finalResponseText += '\n' + trimmedLine;
-            // Update the message content immediately
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                return [...prev.slice(0, -1), { 
-                  ...lastMessage, 
-                  content: finalResponseText.trim(),
-                  stage: 'Consultation completed',
-                  processingStage: undefined
-                }];
-              }
-              return prev;
-            });
-          }
-          else if (isCollectingConsultation && !trimmedLine.includes('Compiling final response')) {
-            // Add line to consultation text
-            consultationText += (consultationText ? '\n' : '') + trimmedLine;
+              
+              isCollectingFinalResponse = true;
+              finalResponseText = trimmedLine.split('Final Response:')[1].trim();
+              
+              // Immediately update the message with the final response
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.role === "assistant") {
+                  const updatedMessage = { 
+                    ...lastMessage, 
+                    content: finalResponseText.trim(),
+                    stage: 'Consultation completed',
+                    processingStage: undefined
+                  };
+                  // Force a re-render by creating a new array
+                  return [...prev.slice(0, -1), { ...updatedMessage }];
+                }
+                return prev;
+              });
+            }
+            else if (isCollectingFinalResponse) {
+              finalResponseText += '\n' + trimmedLine;
+              // Update the message content immediately
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.role === 'assistant') {
+                  return [...prev.slice(0, -1), { 
+                    ...lastMessage, 
+                    content: finalResponseText.trim(),
+                    stage: 'Consultation completed',
+                    processingStage: undefined
+                  }];
+                }
+                return prev;
+              });
+            }
+            else if (isCollectingConsultation && !trimmedLine.includes('Compiling final response')) {
+              // Add line to consultation text
+              consultationText += (consultationText ? '\n' : '') + trimmedLine;
+            }
+
+            // Add timeout check between processing chunks
+            if (Date.now() - lastUpdateTime > 15000) {
+              throw new Error('Processing timeout');
+            }
+
+          } catch (error) {
+            console.error('Error processing line:', error);
+            throw error;
           }
         }
       }
 
-      // Handle any remaining consultation
+      // After the while loop, verify final state
       if (currentSpecialty && consultationText) {
         updateConsultation(currentSpecialty, consultationText);
       }
 
-    } catch (error) {
-      console.error('Error processing question:', {
-        error,
-        question,
-        isRetry
-      });
+      // Ensure final response is displayed
+      if (finalResponseText) {
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastMessage = newMessages[newMessages.length - 1];
+          if (lastMessage.role === "assistant" && lastMessage.stage !== "Consultation completed") {
+            const updatedMessage = { 
+              ...lastMessage, 
+              content: finalResponseText.trim(),
+              stage: 'Consultation completed',
+              processingStage: undefined
+            };
+            return [...prev.slice(0, -1), { ...updatedMessage }];
+          }
+          return prev;
+        });
+      }
+
+      // Clear loading states
+      setIsLoading(false);
+      setConsultingSpecialties(new Set());
+      setSpecialtyStatuses([]);
+
+    } catch (error: any) {
+      console.error('Error:', error);
       setLastErrorQuestion(question);
+
+      // Provide more specific error messages
+      let errorMessage = 'An error occurred while processing your question. Would you like to try again?';
+      if (error.name === 'AbortError') {
+        errorMessage = 'The request took too long to respond. Please try again.';
+      } else if (error.message === 'Processing timeout') {
+        errorMessage = 'The response processing timed out. Please try again.';
+      } else if (error.message === 'Network response was not ok') {
+        errorMessage = 'There was a problem connecting to the server. Please check your connection and try again.';
+      }
+
       setMessages((prev) => [
         ...prev.slice(0, -1),
         {
           role: "assistant",
-          content: "I apologize, but an error occurred while processing your question. Would you like to try again?",
+          content: errorMessage,
           stage: "Error",
           consultations: [],
           specialtyStatuses: [],
           error: true
         },
       ]);
-    } finally {
+
+      // Clear any stuck loading states
       setIsLoading(false);
+      setConsultingSpecialties(new Set());
+      setSpecialtyStatuses([]);
     }
   };
+
+  // Add a cleanup effect for abandoned requests
+  useEffect(() => {
+    return () => {
+      setIsLoading(false);
+      setConsultingSpecialties(new Set());
+      setSpecialtyStatuses([]);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
