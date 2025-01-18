@@ -373,9 +373,9 @@ export function YesilAIChat() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-white rounded-lg shadow-sm overflow-hidden border">
-      <div className="flex items-center justify-between py-6 px-6 border-b bg-gradient-to-r from-teal-50 to-white">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] mt-14 w-full bg-white">
+      <div className="flex items-center justify-between py-4 px-4 md:px-6 border-b bg-gradient-to-r from-teal-50 to-white">
+        <div className="hidden md:flex items-center gap-3">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo200px-RHm9VN8wUaVd9WkNDzpDhPBeUG4JYr.png"
             alt="Yesil AI Logo"
@@ -389,8 +389,8 @@ export function YesilAIChat() {
         <CreditBalance credits={credits} />
       </div>
 
-      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-        <div className="space-y-6 py-4">
+      <ScrollArea className="flex-1 px-2 md:px-4" ref={scrollAreaRef}>
+        <div className="space-y-6 py-4 max-w-4xl mx-auto">
           {messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -411,7 +411,7 @@ export function YesilAIChat() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={cn(
-                  "flex flex-col max-w-[85%] rounded-lg p-4",
+                  "flex flex-col w-full md:max-w-[85%] rounded-lg p-3 md:p-4",
                   message.role === "user"
                     ? "ml-auto bg-[#40E0D0]/10"
                     : "bg-white border border-gray-100 shadow-sm"
@@ -548,8 +548,8 @@ export function YesilAIChat() {
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="border-t p-4">
-        <div className="flex gap-2 items-start">
+      <form onSubmit={handleSubmit} className="border-t p-2 md:p-4">
+        <div className="flex gap-2 items-start max-w-4xl mx-auto">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -580,7 +580,7 @@ export function YesilAIChat() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm p-4"
             onClick={() => setActiveConsultation(null)}
           >
             <motion.div
@@ -588,7 +588,7 @@ export function YesilAIChat() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
               transition={{ duration: 0.1 }}
-              className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-2xl mx-4 max-h-[80vh] overflow-y-auto"
+              className="bg-white p-4 md:p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
